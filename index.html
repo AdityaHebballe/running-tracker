@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroTrack — Google Health Running Visualizer & Analytics</title>
+  
+  <!-- Fallback CDN + Local Vendor styles -->
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Favicon svg -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff6b35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M13 4v16'/><path d='M17 8l-4-4-4 4'/><path d='M19 12H5'/></svg>">
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-title">
+          <h1>
+            <span id="activity-title">Morning Run</span>
+            <span class="badge" id="activity-sport">Running</span>
+          </h1>
+          <div class="activity-meta">
+            <span id="activity-date">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              Oct 20, 2026 • 09:51 AM
+            </span>
+            <span>•</span>
+            <span id="activity-device">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              Fitbit Air / Google Health
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Ask ChatGPT One-Click Button -->
+        <button class="btn btn-chatgpt" id="btn-ask-chatgpt" title="One-Click Send to ChatGPT for AI Coaching & Q&A">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10a9.96 9.96 0 0 1-4.71-1.18L2 22l1.18-5.29A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2z"></path><path d="m9 12 2 2 4-4"></path></svg>
+          <span>Ask ChatGPT</span>
+        </button>
+
+        <!-- Units Toggle -->
+        <div class="toggle-group" id="unit-toggle" title="Toggle Units">
+          <button class="active" data-unit="metric">Metric (km)</button>
+          <button data-unit="imperial">Imperial (mi)</button>
+        </div>
+
+        <!-- File Upload Trigger -->
+        <label class="btn btn-primary" title="Load another TCX or GPX file">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span>Open File</span>
+          <input type="file" id="file-input" accept=".tcx,.gpx,.xml" style="display: none;">
+        </label>
+
+        <!-- Quick Reset to default TCX -->
+        <button class="btn" id="btn-load-sample" title="Reload exercise_tcx_file.tcx">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v6h6"></path><path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path><path d="M21 22v-6h-6"></path><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path></svg>
+          <span>Sample Run</span>
+        </button>
+
+        <!-- Export CSV -->
+        <button class="btn" id="btn-export-csv" title="Export trackpoints as CSV">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>CSV</span>
+        </button>
+
+        <!-- Export JSON -->
+        <button class="btn" id="btn-export-json" title="Export full parsed workout data as JSON">
+          <span>JSON</span>
+        </button>
+
+        <!-- Print Report -->
+        <button class="btn" id="btn-print" title="Print or save as PDF report">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        </button>
+
+        <!-- Dark/Light Theme -->
+        <button class="btn" id="btn-theme-toggle" title="Toggle Theme">
+          <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Body -->
+  <main class="main-content">
+
+    <!-- Drag & Drop Interactive Banner -->
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-zone-text">
+        <div class="drop-zone-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m16 16-4-4-4 4"></path></svg>
+        </div>
+        <div>
+          <div class="drop-zone-title">Viewing Google Health TCX file: <strong id="active-filename">exercise_tcx_file.tcx</strong></div>
+          <div class="drop-zone-subtitle">Drop any other .TCX or .GPX workout file here anytime to inspect full telemetry, heart rate zones, and splits.</div>
+        </div>
+      </div>
+      <button class="btn btn-sm" id="btn-browse-trigger">Choose File</button>
+    </div>
+
+    <!-- Executive KPI Metric Cards -->
+    <section class="kpi-grid">
+      <!-- Total Distance -->
+      <div class="kpi-card accent-orange">
+        <div class="kpi-label">
+          <span>Distance</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-distance">1.27</span>
+          <span class="kpi-unit" id="kpi-dist-unit">km</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-distance-alt">0.79 mi</div>
+      </div>
+
+      <!-- Moving Time -->
+      <div class="kpi-card accent-cyan">
+        <div class="kpi-label">
+          <span>Moving Time</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 10"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-moving-time">10:00</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-elapsed-time">Elapsed: 10:02</div>
+      </div>
+
+      <!-- Avg Pace -->
+      <div class="kpi-card accent-emerald">
+        <div class="kpi-label">
+          <span>Avg Pace</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-avg-pace">7:53</span>
+          <span class="kpi-unit" id="kpi-pace-unit">/km</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-best-pace">Best: 5:14 /km</div>
+      </div>
+
+      <!-- Avg Heart Rate -->
+      <div class="kpi-card accent-rose">
+        <div class="kpi-label">
+          <span>Avg Heart Rate</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-avg-hr">169</span>
+          <span class="kpi-unit">bpm</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-max-hr">Max: 179 • Min: 122</div>
+      </div>
+
+      <!-- Elevation Gain -->
+      <div class="kpi-card accent-amber">
+        <div class="kpi-label">
+          <span>Elevation Gain</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-elev-gain">89.8</span>
+          <span class="kpi-unit" id="kpi-elev-unit">m</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-elev-range">801.5m - 837.3m alt</div>
+      </div>
+
+      <!-- Calories -->
+      <div class="kpi-card accent-purple">
+        <div class="kpi-label">
+          <span>Calories</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-calories">109</span>
+          <span class="kpi-unit">kcal</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-burn-rate">~651 kcal/hr rate</div>
+      </div>
+
+      <!-- Avg Speed -->
+      <div class="kpi-card accent-blue">
+        <div class="kpi-label">
+          <span>Avg Speed</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-avg-speed">7.6</span>
+          <span class="kpi-unit" id="kpi-speed-unit">km/h</span>
+        </div>
+        <div class="kpi-subtext" id="kpi-max-speed">Max: 11.4 km/h</div>
+      </div>
+    </section>
+
+    <!-- Map & HR Zones Row -->
+    <section class="map-zones-row">
+      <!-- Interactive Leaflet Map Card -->
+      <div class="map-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+            <span>Interactive GPS Route</span>
+          </div>
+
+          <div class="card-controls">
+            <!-- Color Mode Selector -->
+            <label style="font-size: 0.775rem; color: var(--text-muted);">Track Color:</label>
+            <select id="select-track-color" class="btn btn-sm">
+              <option value="pace">Gradient by Pace</option>
+              <option value="hr">Gradient by Heart Rate</option>
+              <option value="alt">Gradient by Elevation</option>
+              <option value="solid">Solid Vibrant Route</option>
+            </select>
+
+            <!-- Map Layer Base (100% Free, No API Key Required) -->
+            <select id="select-map-tile" class="btn btn-sm">
+              <option value="dark">Dark Canvas (Esri)</option>
+              <option value="osm">OpenStreetMap</option>
+              <option value="satellite">Satellite Imagery</option>
+              <option value="topo">Topographic (Esri)</option>
+              <option value="light">Light Canvas (Esri)</option>
+            </select>
+
+            <button class="btn btn-sm" id="btn-zoom-in" title="Zoom in (+)" style="font-weight: 700; font-size: 1rem; line-height: 1; padding: 0.2rem 0.55rem;">+</button>
+            <button class="btn btn-sm" id="btn-zoom-out" title="Zoom out (−)" style="font-weight: 700; font-size: 1rem; line-height: 1; padding: 0.2rem 0.55rem;">−</button>
+            <button class="btn btn-sm" id="btn-fit-map" title="Fit track in view">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"></path><path d="M9 21H3v-6"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg>
+              <span>Fit</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="map-viewport-wrapper">
+          <div id="map"></div>
+
+          <!-- Live Floating Telemetry HUD on Scrub -->
+          <div class="map-hud" id="map-hud">
+            <div class="map-hud-row">
+              <span class="map-hud-label">Time Elapsed:</span>
+              <span class="map-hud-val" id="hud-time">00:00</span>
+            </div>
+            <div class="map-hud-row">
+              <span class="map-hud-label">Distance:</span>
+              <span class="map-hud-val" id="hud-dist">0.00 km</span>
+            </div>
+            <div class="map-hud-row">
+              <span class="map-hud-label">Current Pace:</span>
+              <span class="map-hud-val" id="hud-pace">--:-- /km</span>
+            </div>
+            <div class="map-hud-row">
+              <span class="map-hud-label">Heart Rate:</span>
+              <span class="map-hud-val" id="hud-hr">-- bpm</span>
+            </div>
+            <div class="map-hud-row">
+              <span class="map-hud-label">Altitude:</span>
+              <span class="map-hud-val" id="hud-alt">-- m</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-legend">
+          <div class="legend-gradient" id="legend-gradient-container">
+            <span id="legend-min-label">Fast</span>
+            <div class="gradient-bar" id="legend-bar" style="background: linear-gradient(90deg, #10b981, #fbbf24, #ef4444);"></div>
+            <span id="legend-max-label">Slow</span>
+          </div>
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Start
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Finish
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #06b6d4; display: inline-block;"></span> Split Marker
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Heart Rate Zones Panel -->
+      <div class="zones-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+            <span>Heart Rate Zones</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-muted);">
+            <span>Max HR:</span>
+            <input type="number" id="input-max-hr" value="185" min="120" max="230" style="width: 52px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 4px; font-size: 0.75rem; text-align: center;">
+          </div>
+        </div>
+
+        <div style="font-size: 0.75rem; color: var(--text-dim);">
+          Click any zone below to highlight where you were running in that intensity band:
+        </div>
+
+        <!-- Zone 5: Peak -->
+        <div class="zone-item" style="--zone-color: var(--zone-5);" data-zone="5">
+          <div class="zone-header">
+            <span class="zone-badge">
+              <span class="zone-dot"></span>
+              <span>Zone 5: Peak</span>
+            </span>
+            <span class="zone-stats" id="z5-time">04:12 (42%)</span>
+          </div>
+          <div class="zone-progress-bg">
+            <div class="zone-progress-fill" id="z5-bar" style="width: 42%;"></div>
+          </div>
+          <div class="zone-footer">
+            <span id="z5-range">> 175 bpm</span>
+            <span>Anaerobic / Sprint</span>
+          </div>
+        </div>
+
+        <!-- Zone 4: Threshold / Hard -->
+        <div class="zone-item" style="--zone-color: var(--zone-4);" data-zone="4">
+          <div class="zone-header">
+            <span class="zone-badge">
+              <span class="zone-dot"></span>
+              <span>Zone 4: Threshold</span>
+            </span>
+            <span class="zone-stats" id="z4-time">04:30 (45%)</span>
+          </div>
+          <div class="zone-progress-bg">
+            <div class="zone-progress-fill" id="z4-bar" style="width: 45%;"></div>
+          </div>
+          <div class="zone-footer">
+            <span id="z4-range">160 - 175 bpm</span>
+            <span>Cardio Endurance</span>
+          </div>
+        </div>
+
+        <!-- Zone 3: Aerobic -->
+        <div class="zone-item" style="--zone-color: var(--zone-3);" data-zone="3">
+          <div class="zone-header">
+            <span class="zone-badge">
+              <span class="zone-dot"></span>
+              <span>Zone 3: Aerobic</span>
+            </span>
+            <span class="zone-stats" id="z3-time">01:00 (10%)</span>
+          </div>
+          <div class="zone-progress-bg">
+            <div class="zone-progress-fill" id="z3-bar" style="width: 10%;"></div>
+          </div>
+          <div class="zone-footer">
+            <span id="z3-range">145 - 160 bpm</span>
+            <span>Aerobic Base</span>
+          </div>
+        </div>
+
+        <!-- Zone 2: Fat Burn -->
+        <div class="zone-item" style="--zone-color: var(--zone-2);" data-zone="2">
+          <div class="zone-header">
+            <span class="zone-badge">
+              <span class="zone-dot"></span>
+              <span>Zone 2: Fat Burn</span>
+            </span>
+            <span class="zone-stats" id="z2-time">00:18 (3%)</span>
+          </div>
+          <div class="zone-progress-bg">
+            <div class="zone-progress-fill" id="z2-bar" style="width: 3%;"></div>
+          </div>
+          <div class="zone-footer">
+            <span id="z2-range">125 - 145 bpm</span>
+            <span>Fat Burning</span>
+          </div>
+        </div>
+
+        <!-- Zone 1: Warm Up -->
+        <div class="zone-item" style="--zone-color: var(--zone-1);" data-zone="1">
+          <div class="zone-header">
+            <span class="zone-badge">
+              <span class="zone-dot"></span>
+              <span>Zone 1: Warm Up</span>
+            </span>
+            <span class="zone-stats" id="z1-time">00:00 (0%)</span>
+          </div>
+          <div class="zone-progress-bg">
+            <div class="zone-progress-fill" id="z1-bar" style="width: 0%;"></div>
+          </div>
+          <div class="zone-footer">
+            <span id="z1-range">< 125 bpm</span>
+            <span>Active Recovery</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Synchronized Telemetry Charts Card -->
+    <section class="charts-card">
+      <div class="charts-tabs">
+        <div class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          <span>Synchronized Telemetry Charts</span>
+          <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: normal; margin-left: 0.5rem;">(Hover across graphs to sync marker on map)</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <label style="font-size: 0.775rem; color: var(--text-muted);">X-Axis:</label>
+          <div class="toggle-group" id="xaxis-toggle">
+            <button class="active" data-xaxis="dist">Distance</button>
+            <button data-xaxis="time">Time</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pace Chart -->
+      <div>
+        <div class="chart-title-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 10"></polyline></svg>
+          <span>Pace Profile (min/km — Inverted runner scale)</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-pace"></canvas>
+        </div>
+      </div>
+
+      <!-- Heart Rate Chart -->
+      <div>
+        <div class="chart-title-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-rose)" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+          <span>Heart Rate Profile (BPM with Zone thresholds)</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-hr"></canvas>
+        </div>
+      </div>
+
+      <!-- Elevation Profile Chart -->
+      <div>
+        <div class="chart-title-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-amber)" stroke-width="2"><polygon points="12 2 2 22 22 22"></polygon></svg>
+          <span>Elevation Profile (Meters above sea level)</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-elev"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Splits Analysis Table Card -->
+    <section class="splits-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          <span>Splits Breakdown</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 0.775rem; color: var(--text-muted);">Split Interval:</span>
+          <div class="toggle-group" id="splits-interval-toggle">
+            <button class="active" data-split="1000">1 km</button>
+            <button data-split="500">500 m</button>
+            <button data-split="1609.34">1 mi</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table" id="splits-table">
+          <thead>
+            <tr>
+              <th>Split</th>
+              <th>Distance</th>
+              <th>Time</th>
+              <th>Avg Pace</th>
+              <th>Best Pace</th>
+              <th>Avg HR</th>
+              <th>Max HR</th>
+              <th>Elev (+ / -)</th>
+              <th style="min-width: 140px;">Pace Comparison</th>
+            </tr>
+          </thead>
+          <tbody id="splits-tbody">
+            <!-- Injected dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Raw Trackpoints Inspector Card -->
+    <section class="inspector-card">
+      <div class="inspector-toggle" id="inspector-toggle-btn">
+        <div class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          <span>Raw Telemetry Inspector (<span id="total-trackpoints-badge">596</span> data points)</span>
+        </div>
+        <span style="font-size: 0.8rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.3rem;">
+          <span id="inspector-status-text">Show Data Table</span>
+          <svg id="inspector-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </span>
+      </div>
+
+      <div id="inspector-content" style="display: none; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <input type="text" id="inspector-search" placeholder="Search trackpoints (e.g. 175 bpm or 830m)..." style="background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-sm); padding: 0.4rem 0.8rem; font-size: 0.8rem; width: 260px;">
+          <div style="font-size: 0.775rem; color: var(--text-muted);" id="inspector-pagination-info">
+            Showing 1-50 of 596 points
+          </div>
+        </div>
+
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time (ISO)</th>
+                <th>Elapsed</th>
+                <th>Distance</th>
+                <th>HR</th>
+                <th>Altitude</th>
+                <th>Speed</th>
+                <th>Pace</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+              </tr>
+            </thead>
+            <tbody id="inspector-tbody">
+              <!-- Injected dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ChatGPT AI Coach Modal -->
+  <div class="modal-backdrop" id="chatgpt-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <div class="chatgpt-icon-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10a9.96 9.96 0 0 1-4.71-1.18L2 22l1.18-5.29A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2z"></path><path d="m9 12 2 2 4-4"></path></svg>
+          </div>
+          <div>
+            <h3 style="font-size: 1.1rem; font-weight: 700;">Ask ChatGPT AI Coach</h3>
+            <p style="font-size: 0.775rem; color: var(--text-muted);">One-click analysis with your exact workout telemetry & splits</p>
+          </div>
+        </div>
+        <button class="btn btn-sm" id="btn-close-modal" style="border: none; background: transparent; font-size: 1.25rem;">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.6rem;">
+          Choose an analysis focus, or customize the prompt below:
+        </div>
+
+        <!-- Quick Question Prompts -->
+        <div class="preset-prompts">
+          <button class="chip-preset active" data-preset="general">Comprehensive Workout & Health Review</button>
+          <button class="chip-preset" data-preset="zones">Cardio Zones & Aerobic Drift Analysis</button>
+          <button class="chip-preset" data-preset="pacing">Pacing Strategy & Split Degradation</button>
+          <button class="chip-preset" data-preset="training">Next Workout & Recovery Plan</button>
+        </div>
+
+        <div style="position: relative; margin-top: 0.8rem;">
+          <textarea id="chatgpt-prompt-textarea" rows="8" class="prompt-textarea" readonly></textarea>
+          <button class="btn btn-sm copy-badge-btn" id="btn-copy-prompt">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span id="copy-btn-text">Copy Prompt</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn" id="btn-download-tcx-chatgpt" title="Download TCX file to attach directly into ChatGPT Plus">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>Download TCX File</span>
+        </button>
+
+        <button class="btn btn-chatgpt-primary" id="btn-launch-chatgpt">
+          <span>Open ChatGPT with this Run ➔</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pre-loaded Default TCX Data & Vendor scripts -->
+  <script src="initial-data.js"></script>
+  <script src="vendor/leaflet.js"></script>
+  <script src="vendor/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

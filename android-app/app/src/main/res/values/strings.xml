@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AeroTrack</string>
+    <string name="health_connect_rationale">AeroTrack needs access to read your running exercise sessions, heart rate records, and GPS routes to visualize detailed running telemetry and splits.</string>
+</resources>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <link rel="stylesheet" href="leaflet.css" />
+  <script src="leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #0b0f17;
+      overflow: hidden;
+    }
+    #map {
+      width: 100vw;
+      height: 100vh;
+      background: #0b0f17;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    .leaflet-container {
+      background: #0b0f17 !important;
+      font-family: -apple-system, Roboto, sans-serif;
+    }
+    .scrub-pulse {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #ff6b00;
+      border: 3.5px solid #ffffff;
+      box-shadow: 0 0 16px #ff6b00, 0 0 28px rgba(255, 107, 0, 0.85);
+      margin-left: -11px;
+      margin-top: -11px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = null;
+    var routeGlow = null;
+    var routeLine = null;
+    var scrubMarker = null;
+    var startMarker = null;
+    var endMarker = null;
+    var rawPoints = [];
+    var pendingPoints = null;
+
+    function renderRoute(points) {
+      if (!map || !points || points.length === 0) return;
+      rawPoints = points;
+
+      var latlngs = rawPoints.map(function(p) { return [p[0], p[1]]; });
+
+      if (routeGlow) map.removeLayer(routeGlow);
+      if (routeLine) map.removeLayer(routeLine);
+      if (startMarker) map.removeLayer(startMarker);
+      if (endMarker) map.removeLayer(endMarker);
+      if (scrubMarker) map.removeLayer(scrubMarker);
+
+      // Glowing cyan halo
+      routeGlow = L.polyline(latlngs, {
+        color: '#00f0ff',
+        weight: 10,
+        opacity: 0.35,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Neon cyan line
+      routeLine = L.polyline(latlngs, {
+        color: '#00f0ff',
+        weight: 4.5,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Start Pin (Green)
+      startMarker = L.circleMarker(latlngs[0], {
+        radius: 7,
+        fillColor: '#10b981',
+        color: '#ffffff',
+        weight: 2.5,
+        fillOpacity: 1
+      }).addTo(map);
+
+      // Finish Pin (Red)
+      endMarker = L.circleMarker(latlngs[latlngs.length - 1], {
+        radius: 7,
+        fillColor: '#ef4444',
+        color: '#ffffff',
+        weight: 2.5,
+        fillOpacity: 1
+      }).addTo(map);
+
+      var scrubIcon = L.divIcon({
+        className: 'scrub-pulse',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
+      });
+
+      scrubMarker = L.marker(latlngs[0], { icon: scrubIcon, zIndexOffset: 2000 }).addTo(map);
+
+      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+      setTimeout(function() {
+        if (map) {
+          map.invalidateSize(true);
+          map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+        }
+      }, 200);
+
+      setTimeout(function() {
+        if (map) map.invalidateSize(true);
+      }, 600);
+    }
+
+    function setRouteData(pointsJson) {
+      try {
+        var data = typeof pointsJson === 'string' ? JSON.parse(pointsJson) : pointsJson;
+        if (!data || data.length === 0) return;
+
+        if (!map) {
+          pendingPoints = data;
+          return;
+        }
+
+        renderRoute(data);
+      } catch (e) {
+        console.error("setRouteData error: " + e);
+      }
+    }
+
+    function updateScrubIndex(idx) {
+      if (!scrubMarker || !rawPoints || !rawPoints[idx]) return;
+      var pos = [rawPoints[idx][0], rawPoints[idx][1]];
+      scrubMarker.setLatLng(pos);
+    }
+
+    function initMap() {
+      try {
+        if (typeof L === 'undefined') {
+          console.error("Leaflet is undefined!");
+          return;
+        }
+
+        map = L.map('map', {
+          zoomControl: false,
+          attributionControl: false
+        }).setView([12.9336, 77.6193], 17);
+
+        // OpenStreetMap Dark Matter CartoDB tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd'
+        }).addTo(map);
+
+        if (pendingPoints) {
+          renderRoute(pendingPoints);
+          pendingPoints = null;
+        }
+
+        if (window.AeroTrackBridge && window.AeroTrackBridge.onMapReady) {
+          window.AeroTrackBridge.onMapReady();
+        }
+      } catch (err) {
+        console.error("initMap error: " + err);
+      }
+    }
+
+    window.onload = initMap;
+    // Fallback if onload already fired
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(initMap, 50);
+    }
+  </script>
+</body>
+</html>
