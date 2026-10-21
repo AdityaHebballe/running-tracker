@@ -1,22 +1,23 @@
 :root {
-  --bg-primary: #0b0f17;
-  --bg-surface: #121824;
-  --bg-card: #182234;
-  --bg-card-hover: #1f2c42;
-  --border-color: #243249;
-  --border-subtle: #1e2a3c;
+  --bg-primary: #09080e;
+  --bg-surface: #12101b;
+  --bg-card: #181524;
+  --bg-card-hover: #241f35;
+  --border-color: #2c2442;
+  --border-subtle: #201a33;
   
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
   
-  --accent-cyan: #06b6d4;
+  --accent-cyan: #38bdf8;
   --accent-blue: #3b82f6;
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;
-  --accent-purple: #8b5cf6;
-  --accent-orange: #ff6b35;
+  --accent-purple: #a855f7;
+  --accent-purple-light: #c084fc;
+  --accent-orange: #a855f7;
 
   --zone-1: #60a5fa; /* Warm-up Blue */
   --zone-2: #34d399; /* Fat Burn Green */

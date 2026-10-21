@@ -107,7 +107,7 @@ fun RouteStudioScreen(
                         onClick = { isOsmView = !isOsmView },
                         shape = RoundedCornerShape(16.dp),
                         color = SurfaceCard,
-                        border = BorderStroke(1.dp, if (isOsmView) AccentCyan else AccentOrange),
+                        border = BorderStroke(1.dp, if (isOsmView) AccentPurple else AccentPurpleLight),
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
                         Row(
@@ -118,7 +118,7 @@ fun RouteStudioScreen(
                             Icon(
                                 imageVector = if (isOsmView) Icons.Default.Map else Icons.Default.Timeline,
                                 contentDescription = null,
-                                tint = if (isOsmView) AccentCyan else AccentOrange,
+                                tint = if (isOsmView) AccentPurple else AccentPurpleLight,
                                 modifier = Modifier.size(15.dp)
                             )
                             Text(
@@ -219,18 +219,18 @@ fun RouteStudioScreen(
                             val distKm = String.format("%.2f", (currentPoint?.distanceMeters ?: 0.0) / 1000.0)
                             TelemetryBadgeChip(
                                 icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                                iconTint = AccentOrange,
+                                iconTint = AccentPurpleLight,
                                 label = "DIST",
                                 value = distKm,
                                 unit = "km",
-                                valueColor = AccentOrange,
+                                valueColor = AccentPurpleLight,
                                 modifier = Modifier.weight(1f)
                             )
 
                             // Time Chip
                             TelemetryBadgeChip(
                                 icon = Icons.Outlined.Timer,
-                                iconTint = Color(0xFF38BDF8),
+                                iconTint = AccentPurpleBright,
                                 label = "TIME",
                                 value = formatTime(currentPoint?.elapsedSeconds ?: 0),
                                 unit = "min",
@@ -247,7 +247,7 @@ fun RouteStudioScreen(
                                 .fillMaxWidth()
                                 .height(125.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFF0B132B))
+                                .background(DarkSurface)
                                 .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
                         ) {
                             DualCurvesTelemetryCanvas(
@@ -267,9 +267,9 @@ fun RouteStudioScreen(
                             },
                             valueRange = 0f..(validPoints.size - 1).toFloat(),
                             colors = SliderDefaults.colors(
-                                thumbColor = AccentOrange,
-                                activeTrackColor = AccentCyan,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.12f)
+                                thumbColor = AccentPurple,
+                                activeTrackColor = AccentPurple,
+                                inactiveTrackColor = AccentPurpleMuted.copy(alpha = 0.4f)
                             ),
                             modifier = Modifier.fillMaxWidth().height(32.dp)
                         )
@@ -395,9 +395,9 @@ fun NativeOsmMapView(
                     isHorizontalMapRepetitionEnabled = false
                     isVerticalMapRepetitionEnabled = false
 
-                    // Bold glowing cyan halo polyline
+                    // Bold glowing purple halo polyline
                     val glowLine = Polyline().apply {
-                        outlinePaint.color = AndroidColor.parseColor("#7700F0FF")
+                        outlinePaint.color = AndroidColor.parseColor("#77A855F7")
                         outlinePaint.strokeWidth = 26f
                         outlinePaint.strokeCap = Paint.Cap.ROUND
                         outlinePaint.strokeJoin = Paint.Join.ROUND
@@ -405,9 +405,9 @@ fun NativeOsmMapView(
                     }
                     overlays.add(glowLine)
 
-                    // Bold core neon cyan polyline
+                    // Bold core radiant lilac/purple polyline
                     val coreLine = Polyline().apply {
-                        outlinePaint.color = AndroidColor.parseColor("#00F0FF")
+                        outlinePaint.color = AndroidColor.parseColor("#C084FC")
                         outlinePaint.strokeWidth = 14f
                         outlinePaint.strokeCap = Paint.Cap.ROUND
                         outlinePaint.strokeJoin = Paint.Join.ROUND
@@ -564,13 +564,13 @@ fun PureVectorTrackCanvas(
             // Glow
             drawPath(
                 path = routePath,
-                color = AccentCyan.copy(alpha = 0.35f),
+                color = AccentPurple.copy(alpha = 0.35f),
                 style = Stroke(width = (14.dp * zoomScale).toPx().coerceIn(10f, 32f), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
             )
             // Core
             drawPath(
                 path = routePath,
-                color = AccentCyan,
+                color = AccentPurpleLight,
                 style = Stroke(width = (5.dp * zoomScale).toPx().coerceIn(4f, 14f), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
             )
 
@@ -584,11 +584,11 @@ fun PureVectorTrackCanvas(
             drawCircle(color = AccentRose, radius = 9.dp.toPx(), center = finishPos)
             drawCircle(color = Color.White, radius = 4.dp.toPx(), center = finishPos)
 
-            // Scrub Marker (Bold Orange Beacon)
+            // Scrub Marker (Bold Purple Beacon)
             if (currentPoint != null) {
                 val curPos = pointToScreen(currentPoint)
-                drawCircle(color = AccentOrange.copy(alpha = 0.35f), radius = 22.dp.toPx(), center = curPos)
-                drawCircle(color = AccentOrange, radius = 11.dp.toPx(), center = curPos)
+                drawCircle(color = AccentPurple.copy(alpha = 0.35f), radius = 22.dp.toPx(), center = curPos)
+                drawCircle(color = AccentPurple, radius = 11.dp.toPx(), center = curPos)
                 drawCircle(color = Color.White, radius = 5.dp.toPx(), center = curPos)
             }
         }
@@ -612,7 +612,7 @@ fun TelemetryBadgeChip(
     Surface(
         modifier = modifier.height(68.dp),
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF0F172A),
+        color = SurfaceCard,
         border = BorderStroke(1.dp, BorderSubtle)
     ) {
         Column(
@@ -842,15 +842,15 @@ private fun createScrubPinDrawable(context: Context): Drawable {
     val canvas = Canvas(bitmap)
     val center = sizePx / 2f
 
-    // Intense outer orange halo
+    // Intense outer purple halo
     val paintHalo = Paint().apply {
         isAntiAlias = true
-        color = AndroidColor.parseColor("#66FF6B00")
+        color = AndroidColor.parseColor("#66A855F7")
     }
-    // Solid vibrant orange core
+    // Solid vibrant purple core
     val paintCore = Paint().apply {
         isAntiAlias = true
-        color = AndroidColor.parseColor("#FF6B00")
+        color = AndroidColor.parseColor("#A855F7")
     }
     // High-contrast crisp white border
     val paintBorder = Paint().apply {

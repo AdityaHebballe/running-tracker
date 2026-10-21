@@ -82,7 +82,7 @@ fun WorkoutDetailScreen(
                         Icon(
                             imageVector = Icons.Outlined.CalendarToday,
                             contentDescription = "Pick Date",
-                            tint = AccentCyan,
+                            tint = AccentPurpleLight,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -116,7 +116,7 @@ fun WorkoutDetailScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Sync Health Connect",
-                            tint = AccentEmerald
+                            tint = AccentPurpleLight
                         )
                     }
                 },
@@ -126,8 +126,8 @@ fun WorkoutDetailScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showChatGptSheet = true },
-                containerColor = AccentEmerald,
-                contentColor = Color.Black,
+                containerColor = AccentPurple,
+                contentColor = Color.White,
                 shape = RoundedCornerShape(24.dp),
                 elevation = FloatingActionButtonDefaults.elevation(8.dp),
                 icon = {
@@ -252,7 +252,7 @@ fun WorkoutDetailScreen(
                         onSelectDate(picked)
                     }
                 }) {
-                    Text("Select Date", color = AccentCyan, fontWeight = FontWeight.Bold)
+                    Text("Select Date", color = AccentPurpleLight, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -270,17 +270,17 @@ fun WorkoutDetailScreen(
                 colors = DatePickerDefaults.colors(
                     titleContentColor = Color.White,
                     headlineContentColor = Color.White,
-                    weekdayContentColor = AccentCyan,
+                    weekdayContentColor = AccentPurpleLight,
                     subheadContentColor = Color.White,
                     yearContentColor = Color.White,
-                    currentYearContentColor = AccentOrange,
+                    currentYearContentColor = AccentPurpleLight,
                     selectedYearContentColor = Color.White,
-                    selectedYearContainerColor = AccentOrange,
+                    selectedYearContainerColor = AccentPurple,
                     dayContentColor = Color.White,
-                    selectedDayContentColor = Color.Black,
-                    selectedDayContainerColor = AccentOrange,
-                    todayContentColor = AccentCyan,
-                    todayDateBorderColor = AccentCyan
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = AccentPurple,
+                    todayContentColor = AccentPurpleLight,
+                    todayDateBorderColor = AccentPurpleLight
                 )
             )
         }
@@ -371,10 +371,10 @@ fun ExerciseChip(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) AccentOrange.copy(alpha = 0.2f) else SurfaceCard,
+        color = if (isSelected) AccentPurple.copy(alpha = 0.2f) else SurfaceCard,
         border = androidx.compose.foundation.BorderStroke(
             1.5.dp,
-            if (isSelected) AccentOrange else BorderSubtle
+            if (isSelected) AccentPurple else BorderSubtle
         ),
         modifier = Modifier.height(44.dp)
     ) {
@@ -386,7 +386,7 @@ fun ExerciseChip(
             Icon(
                 imageVector = Icons.Default.DirectionsRun,
                 contentDescription = null,
-                tint = if (isSelected) AccentOrange else Color(0xFF94A3B8),
+                tint = if (isSelected) AccentPurpleLight else Color(0xFF94A3B8),
                 modifier = Modifier.size(16.dp)
             )
             Text(
@@ -415,14 +415,14 @@ fun HeroEditorialCard(workout: WorkoutSession) {
             ) {
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = AccentCyan.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
+                    color = AccentPurple.copy(alpha = 0.18f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentPurple.copy(alpha = 0.35f))
                 ) {
                     Text(
                         text = workout.sport.uppercase(),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = AccentCyan,
+                        color = AccentPurpleLight,
                         letterSpacing = 1.sp,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
@@ -455,7 +455,7 @@ fun HeroEditorialCard(workout: WorkoutSession) {
                     text = "KM",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = AccentOrange
+                    color = AccentPurpleLight
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
@@ -523,7 +523,7 @@ fun RouteStudioLauncherCard(
         onClick = onOpenStudio,
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, AccentCyan.copy(alpha = 0.4f)),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, AccentPurple.copy(alpha = 0.45f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -535,13 +535,13 @@ fun RouteStudioLauncherCard(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(AccentCyan.copy(alpha = 0.15f)),
+                        .background(AccentPurple.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Map,
                         contentDescription = null,
-                        tint = AccentCyan,
+                        tint = AccentPurpleLight,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -552,7 +552,7 @@ fun RouteStudioLauncherCard(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.sp,
-                        color = AccentCyan
+                        color = AccentPurpleLight
                     )
                     Text(
                         text = "OpenStreetMap • Live Scrubber",
@@ -570,7 +570,7 @@ fun RouteStudioLauncherCard(
                     .fillMaxWidth()
                     .height(130.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFF0F172A))
+                    .background(DarkSurface)
                     .border(1.dp, BorderSubtle, RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -579,7 +579,7 @@ fun RouteStudioLauncherCard(
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = Color(0xDD000000),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentCyan)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentPurpleLight)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -588,7 +588,7 @@ fun RouteStudioLauncherCard(
                         Icon(
                             imageVector = Icons.Default.OpenInFull,
                             contentDescription = null,
-                            tint = AccentCyan,
+                            tint = AccentPurpleLight,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -637,13 +637,13 @@ fun MiniRouteCanvas(points: List<TrackPoint>) {
         // Glow line
         drawPath(
             path = path,
-            color = AccentCyan.copy(alpha = 0.25f),
+            color = AccentPurple.copy(alpha = 0.3f),
             style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
         )
         // Main neon line
         drawPath(
             path = path,
-            color = AccentCyan,
+            color = AccentPurpleLight,
             style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
         )
     }
@@ -695,14 +695,14 @@ fun GpsInteractiveMapCard(
                 // Ambient glow stroke
                 drawPath(
                     path = path,
-                    color = AccentCyan.copy(alpha = 0.25f),
+                    color = AccentPurple.copy(alpha = 0.35f),
                     style = Stroke(width = 14f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
                 // Neon route line
                 drawPath(
                     path = path,
-                    color = AccentCyan,
+                    color = AccentPurpleLight,
                     style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
@@ -725,9 +725,9 @@ fun GpsInteractiveMapCard(
                 val cy = ((maxLat - currentPoint.latitude) / dLat * h).toFloat()
 
                 // Pulsing outer glow
-                drawCircle(color = AccentOrange.copy(alpha = 0.4f), radius = 18f, center = Offset(cx, cy))
+                drawCircle(color = AccentPurple.copy(alpha = 0.4f), radius = 18f, center = Offset(cx, cy))
                 // Marker core
-                drawCircle(color = AccentOrange, radius = 10f, center = Offset(cx, cy))
+                drawCircle(color = AccentPurple, radius = 10f, center = Offset(cx, cy))
                 drawCircle(color = Color.White, radius = 5f, center = Offset(cx, cy))
             }
 
@@ -783,9 +783,9 @@ fun GpsInteractiveMapCard(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Finish", fontSize = 10.sp, color = Color(0xFF94A3B8))
                 Spacer(modifier = Modifier.width(12.dp))
-                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AccentOrange))
+                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AccentPurple))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Current Marker", fontSize = 10.sp, color = AccentOrange, fontWeight = FontWeight.Bold)
+                Text(text = "Current Marker", fontSize = 10.sp, color = AccentPurpleLight, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -904,7 +904,7 @@ fun SlidingTelemetryCard(
                     // 3. Sliding Scrubber Vertical Cursor
                     val cursorX = (scrubIndex.toFloat() / (points.size - 1)) * w
                     drawLine(
-                        color = AccentOrange,
+                        color = AccentPurple,
                         start = Offset(cursorX, 0f),
                         end = Offset(cursorX, h),
                         strokeWidth = 3f,
@@ -912,8 +912,8 @@ fun SlidingTelemetryCard(
                     )
 
                     // Scrubber point knobs
-                    drawCircle(color = AccentOrange, radius = 6f, center = Offset(cursorX, 0f))
-                    drawCircle(color = AccentOrange, radius = 6f, center = Offset(cursorX, h))
+                    drawCircle(color = AccentPurple, radius = 6f, center = Offset(cursorX, 0f))
+                    drawCircle(color = AccentPurple, radius = 6f, center = Offset(cursorX, h))
                 }
             }
 
@@ -925,9 +925,9 @@ fun SlidingTelemetryCard(
                 onValueChange = { onScrub(it.toInt()) },
                 valueRange = 0f..(points.size - 1).toFloat(),
                 colors = SliderDefaults.colors(
-                    thumbColor = AccentOrange,
-                    activeTrackColor = AccentCyan,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+                    thumbColor = AccentPurple,
+                    activeTrackColor = AccentPurple,
+                    inactiveTrackColor = AccentPurpleMuted.copy(alpha = 0.4f)
                 )
             )
         }
@@ -954,14 +954,14 @@ fun LoopLapCard(split: SplitInfo, overallAvgPace: Double) {
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(if (isFaster) AccentCyan.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.06f)),
+                    .background(if (isFaster) AccentPurple.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "L${split.splitNumber}",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    color = if (isFaster) AccentCyan else Color.White
+                    color = if (isFaster) AccentPurpleLight else Color.White
                 )
             }
 
@@ -990,7 +990,7 @@ fun LoopLapCard(split: SplitInfo, overallAvgPace: Double) {
                     text = "$m:${if (s < 10) "0" else ""}$s /km",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = if (isFaster) AccentCyan else AccentOrange
+                    color = if (isFaster) AccentPurpleLight else AccentPurple
                 )
                 Text(
                     text = "${split.avgHeartRate} bpm",
@@ -1156,10 +1156,10 @@ fun ChatGptBottomSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(AccentEmerald.copy(alpha = 0.15f)),
+                        .background(AccentPurple.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = AccentEmerald, modifier = Modifier.size(22.dp))
+                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = AccentPurpleLight, modifier = Modifier.size(22.dp))
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -1188,13 +1188,13 @@ fun ChatGptBottomSheet(
                     .fillMaxWidth()
                     .height(54.dp),
                 shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
             ) {
                 Text(
                     text = "Copy & Open ChatGPT ➔",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    color = Color.Black
+                    color = Color.White
                 )
             }
         }

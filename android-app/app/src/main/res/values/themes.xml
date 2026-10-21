@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.AeroTrack" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#0B0F17</item>
-        <item name="android:navigationBarColor">#0B0F17</item>
+        <item name="android:statusBarColor">#09080E</item>
+        <item name="android:navigationBarColor">#09080E</item>
     </style>
 </resources>

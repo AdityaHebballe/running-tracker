@@ -34,14 +34,14 @@ fun HealthConnectPermissionScreen(
             modifier = Modifier
                 .size(80.dp)
                 .clip(CircleShape)
-                .background(AccentOrange.copy(alpha = 0.15f))
-                .border(2.dp, AccentOrange, CircleShape),
+                .background(AccentPurple.copy(alpha = 0.15f))
+                .border(2.dp, AccentPurple, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.DirectionsRun,
                 contentDescription = null,
-                tint = AccentOrange,
+                tint = AccentPurple,
                 modifier = Modifier.size(44.dp)
             )
         }
@@ -104,7 +104,7 @@ fun HealthConnectPermissionScreen(
                 .fillMaxWidth()
                 .height(54.dp),
             shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
+            colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
         ) {
             Text(
                 text = "Grant Health Connect Access",
@@ -168,9 +168,9 @@ fun HealthConnectNotAvailableScreen(
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+            colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
         ) {
-            Text(text = "Install from Google Play", fontWeight = FontWeight.Bold, color = Color.Black)
+            Text(text = "Install from Google Play", fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
@@ -196,7 +196,7 @@ fun NoWorkoutsScreen(
             Icon(
                 imageVector = Icons.Default.DirectionsRun,
                 contentDescription = null,
-                tint = Color(0xFF64748B),
+                tint = AccentPurpleLight,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -224,11 +224,11 @@ fun NoWorkoutsScreen(
         Button(
             onClick = onSyncNow,
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+            colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
+            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Sync Workouts", fontWeight = FontWeight.Bold)
+            Text(text = "Sync Workouts", fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
