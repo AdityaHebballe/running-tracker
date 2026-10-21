@@ -768,7 +768,7 @@ fun GpsInteractiveMapCard(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Finish", fontSize = 10.sp, color = Color(0xFF94A3B8))
                 Spacer(modifier = Modifier.width(10.dp))
-                // Pace Heat gradient bar
+                // Pace Heat gradient bar (Red = Fast, Green = Slow)
                 Box(
                     modifier = Modifier
                         .width(36.dp)
@@ -776,7 +776,7 @@ fun GpsInteractiveMapCard(
                         .clip(RoundedCornerShape(3.dp))
                         .background(
                             androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                listOf(Color(0xFF10B981), Color(0xFFFBBF24), Color(0xFFEF4444))
+                                listOf(Color(0xFFEF4444), Color(0xFFFBBF24), Color(0xFF10B981))
                             )
                         )
                 )

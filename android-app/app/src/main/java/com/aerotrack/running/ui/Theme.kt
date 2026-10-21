@@ -43,25 +43,27 @@ val ZoneFatBurn = Color(0xFF34D399)
 val ZoneWarmup = Color(0xFF818CF8)
 
 /**
- * Computes the color corresponding to a running pace, matching the web dashboard:
- * Faster pace -> Emerald Green (#10B981)
+ * Computes the color corresponding to a running pace:
+ * Faster pace -> Hot Red (#EF4444)
  * Moderate pace -> Yellow / Amber (#FBBF24)
- * Slower pace -> Coral Red (#EF4444)
+ * Slower pace -> Cool Green (#10B981)
  */
 fun getPaceColorInt(paceSecPerKm: Double, minPace: Double, maxPace: Double): Int {
-    if (maxPace <= minPace) return android.graphics.Color.rgb(0x10, 0xB9, 0x81)
+    if (maxPace <= minPace) return android.graphics.Color.rgb(0xEF, 0x44, 0x44)
     val norm = ((paceSecPerKm - minPace) / (maxPace - minPace)).coerceIn(0.0, 1.0)
     return if (norm < 0.5) {
         val f = (norm * 2.0).toFloat()
-        val r = (0x10 + f * (0xFB - 0x10)).toInt().coerceIn(0, 255)
-        val g = (0xB9 + f * (0xBF - 0xB9)).toInt().coerceIn(0, 255)
-        val b = (0x81 + f * (0x24 - 0x81)).toInt().coerceIn(0, 255)
+        // Fast to Moderate: Red (#EF4444) to Yellow (#FBBF24)
+        val r = (0xEF + f * (0xFB - 0xEF)).toInt().coerceIn(0, 255)
+        val g = (0x44 + f * (0xBF - 0x44)).toInt().coerceIn(0, 255)
+        val b = (0x44 + f * (0x24 - 0x44)).toInt().coerceIn(0, 255)
         android.graphics.Color.rgb(r, g, b)
     } else {
         val f = ((norm - 0.5) * 2.0).toFloat()
-        val r = (0xFB + f * (0xEF - 0xFB)).toInt().coerceIn(0, 255)
-        val g = (0xBF + f * (0x44 - 0xBF)).toInt().coerceIn(0, 255)
-        val b = (0x24 + f * (0x44 - 0x24)).toInt().coerceIn(0, 255)
+        // Moderate to Slow: Yellow (#FBBF24) to Green (#10B981)
+        val r = (0xFB + f * (0x10 - 0xFB)).toInt().coerceIn(0, 255)
+        val g = (0xBF + f * (0xB9 - 0xBF)).toInt().coerceIn(0, 255)
+        val b = (0x24 + f * (0x81 - 0x24)).toInt().coerceIn(0, 255)
         android.graphics.Color.rgb(r, g, b)
     }
 }

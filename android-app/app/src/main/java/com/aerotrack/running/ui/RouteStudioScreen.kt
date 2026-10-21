@@ -178,7 +178,7 @@ fun RouteStudioScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("Fast", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            Text("Fast", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
                             Box(
                                 modifier = Modifier
                                     .width(42.dp)
@@ -186,11 +186,11 @@ fun RouteStudioScreen(
                                     .clip(RoundedCornerShape(3.dp))
                                     .background(
                                         Brush.horizontalGradient(
-                                            listOf(Color(0xFF10B981), Color(0xFFFBBF24), Color(0xFFEF4444))
+                                            listOf(Color(0xFFEF4444), Color(0xFFFBBF24), Color(0xFF10B981))
                                         )
                                     )
                             )
-                            Text("Slow", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                            Text("Slow", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                         }
                     }
                 } else {

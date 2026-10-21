@@ -106,15 +106,15 @@
   }
 
   function getGradientColor(value, min, max, invert = false) {
-    if (min === max) return '#06b6d4';
+    if (min === max) return '#ef4444';
     let norm = (value - min) / (max - min);
     norm = Math.max(0, Math.min(1, norm));
-    if (invert) norm = 1 - norm; // e.g., for pace where smaller value = faster = green
+    if (invert) norm = 1 - norm; // e.g., for pace where smaller value = faster = red
 
     if (norm < 0.5) {
-      return interpolateColor('#10b981', '#fbbf24', norm * 2); // Green to Yellow
+      return interpolateColor('#ef4444', '#fbbf24', norm * 2); // Red to Yellow
     } else {
-      return interpolateColor('#fbbf24', '#ef4444', (norm - 0.5) * 2); // Yellow to Red
+      return interpolateColor('#fbbf24', '#10b981', (norm - 0.5) * 2); // Yellow to Green
     }
   }
 
@@ -1240,7 +1240,7 @@
       const maxL = document.getElementById('legend-max-label');
 
       if (state.trackColorMode === 'pace') {
-        bar.style.background = 'linear-gradient(90deg, #10b981, #fbbf24, #ef4444)';
+        bar.style.background = 'linear-gradient(90deg, #ef4444, #fbbf24, #10b981)';
         minL.textContent = 'Fast';
         maxL.textContent = 'Slow';
       } else if (state.trackColorMode === 'hr') {
