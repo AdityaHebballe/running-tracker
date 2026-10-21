@@ -594,12 +594,16 @@ fun PureVectorTrackCanvas(
                 )
             }
 
+            val meanLatRad = Math.toRadians((minLat + maxLat) / 2.0)
+            val cosLat = Math.cos(meanLatRad)
+            val geoWidth = (dLon * cosLat).toFloat().coerceAtLeast(0.00001f)
+            val geoHeight = dLat.toFloat().coerceAtLeast(0.00001f)
+            val baseScale = minOf((w * 0.78f) / geoWidth, (h * 0.78f) / geoHeight) * zoomScale
+
             fun pointToScreen(pt: TrackPoint): Offset {
-                val nx = ((pt.longitude - minLon) / dLon - 0.5f).toFloat()
-                val ny = (0.5f - (pt.latitude - minLat) / dLat).toFloat()
-                val sx = cx + nx * (w * 0.75f) * zoomScale
-                val sy = cy + ny * (h * 0.75f) * zoomScale
-                return Offset(sx, sy)
+                val dx = ((pt.longitude - (minLon + maxLon) / 2.0) * cosLat).toFloat()
+                val dy = (((minLat + maxLat) / 2.0 - pt.latitude)).toFloat()
+                return Offset(cx + dx * baseScale, cy + dy * baseScale)
             }
 
             // Pace normalization ranges matching web version
@@ -607,7 +611,22 @@ fun PureVectorTrackCanvas(
             val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
             val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
 
-            // Multi-color Pace Gradient segments (Green -> Yellow -> Red)
+            // 1. High-contrast dark casing underneath for crisp edge separation
+            val casingWidth = (8.5.dp * zoomScale).toPx().coerceIn(6f, 18f)
+            for (i in 0 until valid.size - 1) {
+                val pos1 = pointToScreen(valid[i])
+                val pos2 = pointToScreen(valid[i + 1])
+                drawLine(
+                    color = Color(0xDD000000),
+                    start = pos1,
+                    end = pos2,
+                    strokeWidth = casingWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // 2. Razor-sharp solid core pace lines (Red = Fast, Green = Slow)
+            val coreWidth = (4.5.dp * zoomScale).toPx().coerceIn(3f, 12f)
             for (i in 0 until valid.size - 1) {
                 val p1 = valid[i]
                 val p2 = valid[i + 1]
@@ -616,20 +635,11 @@ fun PureVectorTrackCanvas(
                 val pace = p1.paceSecPerKm ?: ((minPace + maxPace) / 2.0)
                 val color = getPaceColor(pace, minPace, maxPace)
 
-                // Glow
-                drawLine(
-                    color = color.copy(alpha = 0.35f),
-                    start = pos1,
-                    end = pos2,
-                    strokeWidth = (14.dp * zoomScale).toPx().coerceIn(10f, 32f),
-                    cap = StrokeCap.Round
-                )
-                // Core
                 drawLine(
                     color = color,
                     start = pos1,
                     end = pos2,
-                    strokeWidth = (5.dp * zoomScale).toPx().coerceIn(4f, 14f),
+                    strokeWidth = coreWidth,
                     cap = StrokeCap.Round
                 )
             }
