@@ -70,11 +70,36 @@ fun RouteStudioScreen(
         workout.trackPoints.filter { it.latitude != 0.0 && it.longitude != 0.0 }
     }
 
-    var scrubIndex by remember(workout) {
-        mutableStateOf(if (validPoints.isNotEmpty()) validPoints.size / 2 else 0)
+    var selectedLapNumber by remember { mutableStateOf<Int?>(null) }
+
+    val activeSplit = remember(selectedLapNumber, workout.splits) {
+        workout.splits.firstOrNull { it.splitNumber == selectedLapNumber }
     }
 
-    val currentPoint = validPoints.getOrNull(scrubIndex.coerceIn(0, validPoints.size - 1))
+    val activeLapPoints = remember(validPoints, selectedLapNumber, workout.splits) {
+        if (selectedLapNumber == null) {
+            validPoints
+        } else {
+            val split = workout.splits.firstOrNull { it.splitNumber == selectedLapNumber }
+            if (split != null && split.endIndex > split.startIndex && split.endIndex < validPoints.size) {
+                validPoints.subList(split.startIndex, split.endIndex + 1)
+            } else if (split != null) {
+                val targetStartDist = (split.splitNumber - 1) * 255.0
+                val targetEndDist = split.splitNumber * 255.0
+                val sIdx = validPoints.indexOfFirst { it.distanceMeters >= targetStartDist }.coerceAtLeast(0)
+                val eIdx = validPoints.indexOfLast { it.distanceMeters <= targetEndDist }.takeIf { it >= sIdx } ?: (validPoints.size - 1)
+                validPoints.subList(sIdx, (eIdx + 1).coerceAtMost(validPoints.size))
+            } else {
+                validPoints
+            }
+        }
+    }
+
+    var scrubIndex by remember(activeLapPoints) {
+        mutableStateOf(0)
+    }
+
+    val currentPoint = activeLapPoints.getOrNull(scrubIndex.coerceIn(0, (activeLapPoints.size - 1).coerceAtLeast(0)))
     var isOsmView by remember { mutableStateOf(true) }
 
     Scaffold(
@@ -153,18 +178,24 @@ fun RouteStudioScreen(
                     if (isOsmView) {
                         // Native OpenStreetMap MapView (High-res, deep zoom levels 4..20, kinetic pan)
                         NativeOsmMapView(
-                            points = validPoints,
+                            allPoints = validPoints,
+                            lapPoints = activeLapPoints,
+                            isIsolated = selectedLapNumber != null,
+                            selectedLapNumber = selectedLapNumber,
                             scrubIndex = scrubIndex
                         )
                     } else {
                         // Pure High-Contrast Neon Vector Track Canvas
                         PureVectorTrackCanvas(
-                            points = validPoints,
+                            allPoints = validPoints,
+                            lapPoints = activeLapPoints,
+                            isIsolated = selectedLapNumber != null,
+                            selectedLapNumber = selectedLapNumber,
                             scrubIndex = scrubIndex
                         )
                     }
 
-                    // Floating Pace Heat Legend Pill (Green -> Yellow -> Red) matching web version
+                    // Floating Pace Heat Legend Pill (Red -> Yellow -> Green)
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = DarkBg.copy(alpha = 0.85f),
@@ -193,6 +224,45 @@ fun RouteStudioScreen(
                             Text("Slow", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                         }
                     }
+
+                    // Floating Lap Isolation Badge on Map
+                    if (selectedLapNumber != null) {
+                        Surface(
+                            onClick = { selectedLapNumber = null },
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xEE1E1528),
+                            border = BorderStroke(1.dp, AccentPurpleLight),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FilterAlt,
+                                    contentDescription = null,
+                                    tint = AccentPurpleLight,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = "Lap $selectedLapNumber Isolated",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Show All",
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                    }
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -217,13 +287,13 @@ fun RouteStudioScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
-                        // ROW 1: Real-Time Telemetry Cards with perfectly uniform icon badges
+                        // ROW 1: Real-Time Telemetry Cards with uniform icon badges
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Pace Chip
-                            val curPaceSec = currentPoint?.paceSecPerKm ?: workout.avgPaceSecPerKm
+                            val curPaceSec = currentPoint?.paceSecPerKm ?: (activeSplit?.avgPaceSecPerKm ?: workout.avgPaceSecPerKm)
                             val pm = (curPaceSec / 60).toInt()
                             val ps = (curPaceSec % 60).toInt()
                             TelemetryBadgeChip(
@@ -241,30 +311,40 @@ fun RouteStudioScreen(
                                 icon = Icons.Default.Favorite,
                                 iconTint = AccentRose,
                                 label = "HEART",
-                                value = "${currentPoint?.heartRateBpm ?: workout.avgHeartRate}",
+                                value = "${currentPoint?.heartRateBpm ?: (activeSplit?.avgHeartRate ?: workout.avgHeartRate)}",
                                 unit = "bpm",
                                 valueColor = AccentRose,
                                 modifier = Modifier.weight(1f)
                             )
 
-                            // Distance Chip
-                            val distKm = String.format("%.2f", (currentPoint?.distanceMeters ?: 0.0) / 1000.0)
+                            // Distance Chip (Relative to isolated lap if active)
+                            val distMeters = if (selectedLapNumber != null && activeLapPoints.isNotEmpty()) {
+                                ((currentPoint?.distanceMeters ?: 0.0) - activeLapPoints.first().distanceMeters).coerceAtLeast(0.0)
+                            } else {
+                                currentPoint?.distanceMeters ?: 0.0
+                            }
+                            val distKm = String.format("%.2f", distMeters / 1000.0)
                             TelemetryBadgeChip(
                                 icon = Icons.AutoMirrored.Filled.DirectionsRun,
                                 iconTint = AccentPurpleLight,
-                                label = "DIST",
+                                label = if (selectedLapNumber != null) "LAP DIST" else "DIST",
                                 value = distKm,
                                 unit = "km",
                                 valueColor = AccentPurpleLight,
                                 modifier = Modifier.weight(1f)
                             )
 
-                            // Time Chip
+                            // Time Chip (Relative to isolated lap if active)
+                            val elapsedSec = if (selectedLapNumber != null && activeLapPoints.isNotEmpty()) {
+                                ((currentPoint?.elapsedSeconds ?: 0L) - activeLapPoints.first().elapsedSeconds).coerceAtLeast(0L)
+                            } else {
+                                currentPoint?.elapsedSeconds ?: 0L
+                            }
                             TelemetryBadgeChip(
                                 icon = Icons.Outlined.Timer,
                                 iconTint = AccentPurpleBright,
-                                label = "TIME",
-                                value = formatTime(currentPoint?.elapsedSeconds ?: 0),
+                                label = if (selectedLapNumber != null) "LAP TIME" else "TIME",
+                                value = formatTime(elapsedSec),
                                 unit = "min",
                                 valueColor = Color.White,
                                 modifier = Modifier.weight(1f)
@@ -283,7 +363,7 @@ fun RouteStudioScreen(
                                 .border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
                         ) {
                             DualCurvesTelemetryCanvas(
-                                points = validPoints,
+                                points = activeLapPoints,
                                 scrubIndex = scrubIndex,
                                 workout = workout
                             )
@@ -293,11 +373,11 @@ fun RouteStudioScreen(
 
                         // ROW 3: Interactive Smooth Scrub Slider
                         Slider(
-                            value = scrubIndex.toFloat(),
+                            value = scrubIndex.toFloat().coerceIn(0f, (activeLapPoints.size - 1).coerceAtLeast(0).toFloat()),
                             onValueChange = { newVal ->
-                                scrubIndex = newVal.toInt().coerceIn(0, validPoints.size - 1)
+                                scrubIndex = newVal.toInt().coerceIn(0, (activeLapPoints.size - 1).coerceAtLeast(0))
                             },
-                            valueRange = 0f..(validPoints.size - 1).toFloat(),
+                            valueRange = 0f..(activeLapPoints.size - 1).coerceAtLeast(1).toFloat(),
                             colors = SliderDefaults.colors(
                                 thumbColor = AccentPurple,
                                 activeTrackColor = AccentPurple,
@@ -306,7 +386,7 @@ fun RouteStudioScreen(
                             modifier = Modifier.fillMaxWidth().height(32.dp)
                         )
 
-                        // ROW 4: Lap Jump Shortcuts Row (Circle loops)
+                        // ROW 4: Lap Isolation Selector Chips
                         if (workout.splits.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
@@ -316,61 +396,54 @@ fun RouteStudioScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "JUMP:",
+                                    text = "LAPS:",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF64748B)
                                 )
 
+                                val isAllSelected = (selectedLapNumber == null)
                                 Surface(
-                                    onClick = { scrubIndex = 0 },
+                                    onClick = {
+                                        selectedLapNumber = null
+                                        scrubIndex = 0
+                                    },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color.White.copy(alpha = 0.05f),
-                                    border = BorderStroke(1.dp, BorderSubtle)
+                                    color = if (isAllSelected) AccentPurple else Color.White.copy(alpha = 0.05f),
+                                    border = BorderStroke(1.dp, if (isAllSelected) AccentPurpleLight else BorderSubtle)
                                 ) {
                                     Text(
-                                        text = "Start",
+                                        text = "ALL",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = AccentEmerald,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        color = if (isAllSelected) Color.White else Color(0xFF94A3B8),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     )
                                 }
 
                                 workout.splits.forEach { split ->
-                                    val targetDist = split.splitNumber * 255.0
-                                    val ptIdx = validPoints.indexOfFirst { it.distanceMeters >= targetDist }
-                                        .takeIf { it >= 0 } ?: (validPoints.size - 1)
-
+                                    val isSelected = (selectedLapNumber == split.splitNumber)
                                     Surface(
-                                        onClick = { scrubIndex = ptIdx },
+                                        onClick = {
+                                            if (isSelected) {
+                                                selectedLapNumber = null
+                                            } else {
+                                                selectedLapNumber = split.splitNumber
+                                            }
+                                            scrubIndex = 0
+                                        },
                                         shape = RoundedCornerShape(10.dp),
-                                        color = Color.White.copy(alpha = 0.05f),
-                                        border = BorderStroke(1.dp, BorderSubtle)
+                                        color = if (isSelected) AccentPurple else Color.White.copy(alpha = 0.05f),
+                                        border = BorderStroke(1.dp, if (isSelected) AccentPurpleLight else BorderSubtle)
                                     ) {
                                         Text(
                                             text = "Lap ${split.splitNumber}",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFCBD5E1),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                         )
                                     }
-                                }
-
-                                Surface(
-                                    onClick = { scrubIndex = validPoints.size - 1 },
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color.White.copy(alpha = 0.05f),
-                                    border = BorderStroke(1.dp, BorderSubtle)
-                                ) {
-                                    Text(
-                                        text = "Finish",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentRose,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
                                 }
                             }
                         }
@@ -384,31 +457,139 @@ fun RouteStudioScreen(
 /**
  * Genuine Native OpenStreetMap MapView (Powered by OsmDroid):
  * Dynamic real tile streaming, deep zoom (zoom 4 to 20), high-res DPI scaling,
- * bold hardware-accelerated cyan route polyline, and large, high-contrast markers.
+ * bold hardware-accelerated route polyline, lap isolation with ghost trail, and large markers.
  */
 @Composable
 fun NativeOsmMapView(
-    points: List<TrackPoint>,
+    allPoints: List<TrackPoint>,
+    lapPoints: List<TrackPoint>,
+    isIsolated: Boolean,
+    selectedLapNumber: Int?,
     scrubIndex: Int
 ) {
     val context = LocalContext.current
-    val geoPoints = remember(points) {
-        points.map { GeoPoint(it.latitude, it.longitude) }
+    val allGeoPoints = remember(allPoints) {
+        allPoints.map { GeoPoint(it.latitude, it.longitude) }
+    }
+    val lapGeoPoints = remember(lapPoints) {
+        lapPoints.map { GeoPoint(it.latitude, it.longitude) }
     }
 
-    if (geoPoints.isEmpty()) return
+    if (allGeoPoints.isEmpty() || lapGeoPoints.isEmpty()) return
 
-    val minLat = points.minOf { it.latitude }
-    val maxLat = points.maxOf { it.latitude }
-    val minLon = points.minOf { it.longitude }
-    val maxLon = points.maxOf { it.longitude }
+    val minLat = lapPoints.minOf { it.latitude }
+    val maxLat = lapPoints.maxOf { it.latitude }
+    val minLon = lapPoints.minOf { it.longitude }
+    val maxLon = lapPoints.maxOf { it.longitude }
 
     var scrubMarkerRef by remember { mutableStateOf<Marker?>(null) }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
 
-    // Update live scrub marker position on map as slider drags
+    // Rebuild overlays when isolated lap or route selection changes
+    val rebuildOverlays = remember(context, allGeoPoints, lapGeoPoints, isIsolated, selectedLapNumber) {
+        { mv: MapView, animatedZoom: Boolean ->
+            mv.overlays.clear()
+
+            // Calculate ranges for pace normalization (matching web version)
+            val validPaces = lapPoints.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
+            val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
+            val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
+
+            // 1. Ghost Trail: Faint full route underneath when isolating a lap
+            if (isIsolated) {
+                val ghostLine = Polyline().apply {
+                    outlinePaint.color = AndroidColor.parseColor("#44FFFFFF")
+                    outlinePaint.strokeWidth = 9f
+                    outlinePaint.strokeCap = Paint.Cap.ROUND
+                    outlinePaint.strokeJoin = Paint.Join.ROUND
+                    setPoints(allGeoPoints)
+                }
+                mv.overlays.add(ghostLine)
+            }
+
+            // 2. Dark casing polyline underneath active lap for crisp contrast
+            val casingLine = Polyline().apply {
+                outlinePaint.color = AndroidColor.parseColor("#99000000")
+                outlinePaint.strokeWidth = 24f
+                outlinePaint.strokeCap = Paint.Cap.ROUND
+                outlinePaint.strokeJoin = Paint.Join.ROUND
+                setPoints(lapGeoPoints)
+            }
+            mv.overlays.add(casingLine)
+
+            // 3. Multi-color Pace Gradient Polyline (Red = Fast, Yellow = Moderate, Green = Slow)
+            val coreLine = Polyline().apply {
+                val corePaint = Paint().apply {
+                    isAntiAlias = true
+                    strokeWidth = 14f
+                    strokeCap = Paint.Cap.ROUND
+                    strokeJoin = Paint.Join.ROUND
+                    style = Paint.Style.STROKE
+                }
+                val colorMapping = ColorMapping { index ->
+                    val pt = lapPoints.getOrNull(index.coerceIn(0, lapPoints.size - 1))
+                    val p = pt?.paceSecPerKm ?: ((minPace + maxPace) / 2.0)
+                    getPaceColorInt(p, minPace, maxPace)
+                }
+                usePath(false)
+                outlinePaintLists.add(PolychromaticPaintList(corePaint, colorMapping, true))
+                setPoints(lapGeoPoints)
+            }
+            mv.overlays.add(coreLine)
+
+            // Start Pin (Bold Green with White Border)
+            val startMarker = Marker(mv).apply {
+                position = lapGeoPoints.first()
+                icon = createCirclePinDrawable(context, AndroidColor.parseColor("#00E676"))
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                title = if (isIsolated) "Lap $selectedLapNumber Start" else "Start"
+            }
+            mv.overlays.add(startMarker)
+
+            // Finish Pin (Bold Red with White Border)
+            val endMarker = Marker(mv).apply {
+                position = lapGeoPoints.last()
+                icon = createCirclePinDrawable(context, AndroidColor.parseColor("#FF1744"))
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                title = if (isIsolated) "Lap $selectedLapNumber Finish" else "Finish"
+            }
+            mv.overlays.add(endMarker)
+
+            // Active Scrub Marker (Large, high-contrast 36dp pulsing beacon)
+            val curScrubGeo = lapGeoPoints.getOrNull(scrubIndex.coerceIn(0, lapGeoPoints.size - 1)) ?: lapGeoPoints.first()
+            val scrubMarker = Marker(mv).apply {
+                position = curScrubGeo
+                icon = createScrubPinDrawable(context)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                title = "Current Position"
+            }
+            mv.overlays.add(scrubMarker)
+            scrubMarkerRef = scrubMarker
+
+            // Automatically center and zoom smoothly to fit the active lap or route
+            val dLat = (maxLat - minLat).coerceAtLeast(0.0005)
+            val dLon = (maxLon - minLon).coerceAtLeast(0.0005)
+            val paddedBox = BoundingBox(
+                maxLat + dLat * 0.22,
+                maxLon + dLon * 0.22,
+                minLat - dLat * 0.22,
+                minLon - dLon * 0.22
+            )
+            mv.post {
+                mv.zoomToBoundingBox(paddedBox, animatedZoom)
+            }
+            mv.invalidate()
+        }
+    }
+
+    // Trigger overlay rebuild when selected lap changes
+    LaunchedEffect(rebuildOverlays) {
+        mapViewRef?.let { rebuildOverlays(it, true) }
+    }
+
+    // Update live scrub marker position on map as slider drags smoothly
     LaunchedEffect(scrubIndex) {
-        val curGeo = geoPoints.getOrNull(scrubIndex.coerceIn(0, geoPoints.size - 1))
+        val curGeo = lapGeoPoints.getOrNull(scrubIndex.coerceIn(0, lapGeoPoints.size - 1))
         if (curGeo != null && scrubMarkerRef != null) {
             scrubMarkerRef?.position = curGeo
             mapViewRef?.invalidate()
@@ -426,85 +607,11 @@ fun NativeOsmMapView(
                     maxZoomLevel = 20.0
                     isHorizontalMapRepetitionEnabled = false
                     isVerticalMapRepetitionEnabled = false
-
-                    // Calculate ranges for pace normalization (matching web version)
-                    val validPaces = points.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
-                    val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
-                    val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
-
-                    // Dark casing polyline underneath for maximum contrast against road tiles
-                    val glowLine = Polyline().apply {
-                        outlinePaint.color = AndroidColor.parseColor("#99000000")
-                        outlinePaint.strokeWidth = 24f
-                        outlinePaint.strokeCap = Paint.Cap.ROUND
-                        outlinePaint.strokeJoin = Paint.Join.ROUND
-                        setPoints(geoPoints)
-                    }
-                    overlays.add(glowLine)
-
-                    // Multi-color Pace Gradient Polyline (Green = Fast, Yellow = Moderate, Red = Slow)
-                    val coreLine = Polyline().apply {
-                        val corePaint = Paint().apply {
-                            isAntiAlias = true
-                            strokeWidth = 14f
-                            strokeCap = Paint.Cap.ROUND
-                            strokeJoin = Paint.Join.ROUND
-                            style = Paint.Style.STROKE
-                        }
-                        val colorMapping = ColorMapping { index ->
-                            val pt = points.getOrNull(index.coerceIn(0, points.size - 1))
-                            val p = pt?.paceSecPerKm ?: ((minPace + maxPace) / 2.0)
-                            getPaceColorInt(p, minPace, maxPace)
-                        }
-                        usePath(false)
-                        outlinePaintLists.add(PolychromaticPaintList(corePaint, colorMapping, true))
-                        setPoints(geoPoints)
-                    }
-                    overlays.add(coreLine)
-
-                    // Start Pin (Bold Green with White Border)
-                    val startMarker = Marker(this).apply {
-                        position = geoPoints.first()
-                        icon = createCirclePinDrawable(ctx, AndroidColor.parseColor("#00E676"))
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        title = "Start"
-                    }
-                    overlays.add(startMarker)
-
-                    // Finish Pin (Bold Red with White Border)
-                    val endMarker = Marker(this).apply {
-                        position = geoPoints.last()
-                        icon = createCirclePinDrawable(ctx, AndroidColor.parseColor("#FF1744"))
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        title = "Finish"
-                    }
-                    overlays.add(endMarker)
-
-                    // Active Scrub Marker (Large, high-contrast 36dp pulsing beacon)
-                    val scrubMarker = Marker(this).apply {
-                        position = geoPoints[scrubIndex.coerceIn(0, geoPoints.size - 1)]
-                        icon = createScrubPinDrawable(ctx)
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        title = "Current Position"
-                    }
-                    overlays.add(scrubMarker)
-                    scrubMarkerRef = scrubMarker
                     mapViewRef = this
-
-                    // Automatically center and zoom smoothly to fit the entire route
-                    post {
-                        val dLat = (maxLat - minLat).coerceAtLeast(0.0005)
-                        val dLon = (maxLon - minLon).coerceAtLeast(0.0005)
-                        val paddedBox = BoundingBox(
-                            maxLat + dLat * 0.22,
-                            maxLon + dLon * 0.22,
-                            minLat - dLat * 0.22,
-                            minLon - dLon * 0.22
-                        )
-                        zoomToBoundingBox(paddedBox, false)
-                    }
+                    rebuildOverlays(this, false)
                 }
             },
+            update = { /* Overlays are reactively managed via LaunchedEffect */ },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -542,20 +649,25 @@ fun NativeOsmMapView(
 }
 
 /**
- * Pure High-Contrast Neon Vector Track Canvas
+ * Pure High-Contrast Neon Vector Track Canvas with Per-Lap Isolation
  */
 @Composable
 fun PureVectorTrackCanvas(
-    points: List<TrackPoint>,
+    allPoints: List<TrackPoint>,
+    lapPoints: List<TrackPoint>,
+    isIsolated: Boolean,
+    selectedLapNumber: Int?,
     scrubIndex: Int
 ) {
-    val valid = points.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-    if (valid.size < 2) return
+    val validAll = allPoints.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+    val validLap = lapPoints.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+    if (validLap.size < 2 && validAll.size < 2) return
+    val activeTrack = if (validLap.size >= 2) validLap else validAll
 
-    val minLat = valid.minOf { it.latitude }
-    val maxLat = valid.maxOf { it.latitude }
-    val minLon = valid.minOf { it.longitude }
-    val maxLon = valid.maxOf { it.longitude }
+    val minLat = activeTrack.minOf { it.latitude }
+    val maxLat = activeTrack.maxOf { it.latitude }
+    val minLon = activeTrack.minOf { it.longitude }
+    val maxLon = activeTrack.maxOf { it.longitude }
 
     val dLat = Math.max(0.00001, maxLat - minLat)
     val dLon = Math.max(0.00001, maxLon - minLon)
@@ -564,7 +676,14 @@ fun PureVectorTrackCanvas(
     var panOffsetY by remember { mutableFloatStateOf(0f) }
     var zoomScale by remember { mutableFloatStateOf(1.2f) }
 
-    val currentPoint = valid.getOrNull(scrubIndex.coerceIn(0, valid.size - 1))
+    // Reset pan and zoom when lap selection changes
+    LaunchedEffect(selectedLapNumber) {
+        panOffsetX = 0f
+        panOffsetY = 0f
+        zoomScale = 1.2f
+    }
+
+    val currentPoint = activeTrack.getOrNull(scrubIndex.coerceIn(0, activeTrack.size - 1))
 
     Box(
         modifier = Modifier
@@ -607,15 +726,30 @@ fun PureVectorTrackCanvas(
             }
 
             // Pace normalization ranges matching web version
-            val validPaces = valid.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
+            val validPaces = activeTrack.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
             val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
             val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
 
+            // 0. Faint Ghost Line of entire route when lap is isolated
+            if (isIsolated && validAll.size >= 2) {
+                for (i in 0 until validAll.size - 1) {
+                    val pos1 = pointToScreen(validAll[i])
+                    val pos2 = pointToScreen(validAll[i + 1])
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.12f),
+                        start = pos1,
+                        end = pos2,
+                        strokeWidth = 2.5f,
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
+
             // 1. High-contrast dark casing underneath for crisp edge separation
             val casingWidth = (8.5.dp * zoomScale).toPx().coerceIn(6f, 18f)
-            for (i in 0 until valid.size - 1) {
-                val pos1 = pointToScreen(valid[i])
-                val pos2 = pointToScreen(valid[i + 1])
+            for (i in 0 until activeTrack.size - 1) {
+                val pos1 = pointToScreen(activeTrack[i])
+                val pos2 = pointToScreen(activeTrack[i + 1])
                 drawLine(
                     color = Color(0xDD000000),
                     start = pos1,
@@ -627,9 +761,9 @@ fun PureVectorTrackCanvas(
 
             // 2. Razor-sharp solid core pace lines (Red = Fast, Green = Slow)
             val coreWidth = (4.5.dp * zoomScale).toPx().coerceIn(3f, 12f)
-            for (i in 0 until valid.size - 1) {
-                val p1 = valid[i]
-                val p2 = valid[i + 1]
+            for (i in 0 until activeTrack.size - 1) {
+                val p1 = activeTrack[i]
+                val p2 = activeTrack[i + 1]
                 val pos1 = pointToScreen(p1)
                 val pos2 = pointToScreen(p2)
                 val pace = p1.paceSecPerKm ?: ((minPace + maxPace) / 2.0)
@@ -645,12 +779,12 @@ fun PureVectorTrackCanvas(
             }
 
             // Start Pin (Bold Green)
-            val startPos = pointToScreen(valid.first())
+            val startPos = pointToScreen(activeTrack.first())
             drawCircle(color = AccentEmerald, radius = 9.dp.toPx(), center = startPos)
             drawCircle(color = Color.White, radius = 4.dp.toPx(), center = startPos)
 
             // Finish Pin (Bold Red)
-            val finishPos = pointToScreen(valid.last())
+            val finishPos = pointToScreen(activeTrack.last())
             drawCircle(color = AccentRose, radius = 9.dp.toPx(), center = finishPos)
             drawCircle(color = Color.White, radius = 4.dp.toPx(), center = finishPos)
 

@@ -230,7 +230,9 @@ object TcxParser {
                             avgHeartRate = avgHr,
                             maxHeartRate = maxHr,
                             elevationGainMeters = 0.0,
-                            elevationLossMeters = 0.0
+                            elevationLossMeters = 0.0,
+                            startIndex = lapStartIdx,
+                            endIndex = i
                         )
                     )
 
@@ -261,7 +263,9 @@ object TcxParser {
                         avgHeartRate = if (hrs.isNotEmpty()) hrs.average().toInt() else 0,
                         maxHeartRate = if (hrs.isNotEmpty()) hrs.maxOrNull() ?: 0 else 0,
                         elevationGainMeters = 0.0,
-                        elevationLossMeters = 0.0
+                        elevationLossMeters = 0.0,
+                        startIndex = lapStartIdx,
+                        endIndex = validPoints.size - 1
                     )
                 )
             }

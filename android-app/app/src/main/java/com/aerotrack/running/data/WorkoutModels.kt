@@ -22,8 +22,10 @@ data class SplitInfo(
     val bestPaceSecPerKm: Double,
     val avgHeartRate: Int,
     val maxHeartRate: Int,
-    val elevationGainMeters: Double,
-    val elevationLossMeters: Double
+    val elevationGainMeters: Double = 0.0,
+    val elevationLossMeters: Double = 0.0,
+    val startIndex: Int = 0,
+    val endIndex: Int = 0
 )
 
 data class HeartRateZoneStats(
