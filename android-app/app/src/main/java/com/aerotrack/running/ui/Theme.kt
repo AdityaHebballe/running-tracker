@@ -42,6 +42,34 @@ val ZoneAerobic = Color(0xFFFBBF24)
 val ZoneFatBurn = Color(0xFF34D399)
 val ZoneWarmup = Color(0xFF818CF8)
 
+/**
+ * Computes the color corresponding to a running pace, matching the web dashboard:
+ * Faster pace -> Emerald Green (#10B981)
+ * Moderate pace -> Yellow / Amber (#FBBF24)
+ * Slower pace -> Coral Red (#EF4444)
+ */
+fun getPaceColorInt(paceSecPerKm: Double, minPace: Double, maxPace: Double): Int {
+    if (maxPace <= minPace) return android.graphics.Color.rgb(0x10, 0xB9, 0x81)
+    val norm = ((paceSecPerKm - minPace) / (maxPace - minPace)).coerceIn(0.0, 1.0)
+    return if (norm < 0.5) {
+        val f = (norm * 2.0).toFloat()
+        val r = (0x10 + f * (0xFB - 0x10)).toInt().coerceIn(0, 255)
+        val g = (0xB9 + f * (0xBF - 0xB9)).toInt().coerceIn(0, 255)
+        val b = (0x81 + f * (0x24 - 0x81)).toInt().coerceIn(0, 255)
+        android.graphics.Color.rgb(r, g, b)
+    } else {
+        val f = ((norm - 0.5) * 2.0).toFloat()
+        val r = (0xFB + f * (0xEF - 0xFB)).toInt().coerceIn(0, 255)
+        val g = (0xBF + f * (0x44 - 0xBF)).toInt().coerceIn(0, 255)
+        val b = (0x24 + f * (0x44 - 0x24)).toInt().coerceIn(0, 255)
+        android.graphics.Color.rgb(r, g, b)
+    }
+}
+
+fun getPaceColor(paceSecPerKm: Double, minPace: Double, maxPace: Double): Color {
+    return Color(getPaceColorInt(paceSecPerKm, minPace, maxPace))
+}
+
 private val ExpressiveDarkColorScheme = darkColorScheme(
     primary = AccentPurple,
     onPrimary = Color.White,

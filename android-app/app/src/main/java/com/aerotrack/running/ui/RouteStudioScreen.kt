@@ -49,6 +49,8 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.advancedpolyline.ColorMapping
+import org.osmdroid.views.overlay.advancedpolyline.PolychromaticPaintList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -160,6 +162,36 @@ fun RouteStudioScreen(
                             points = validPoints,
                             scrubIndex = scrubIndex
                         )
+                    }
+
+                    // Floating Pace Heat Legend Pill (Green -> Yellow -> Red) matching web version
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = DarkBg.copy(alpha = 0.85f),
+                        border = BorderStroke(1.dp, BorderSubtle),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("Fast", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            Box(
+                                modifier = Modifier
+                                    .width(42.dp)
+                                    .height(5.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFF10B981), Color(0xFFFBBF24), Color(0xFFEF4444))
+                                        )
+                                    )
+                            )
+                            Text("Slow", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                        }
                     }
                 } else {
                     Box(
@@ -395,22 +427,37 @@ fun NativeOsmMapView(
                     isHorizontalMapRepetitionEnabled = false
                     isVerticalMapRepetitionEnabled = false
 
-                    // Bold glowing purple halo polyline
+                    // Calculate ranges for pace normalization (matching web version)
+                    val validPaces = points.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
+                    val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
+                    val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
+
+                    // Dark casing polyline underneath for maximum contrast against road tiles
                     val glowLine = Polyline().apply {
-                        outlinePaint.color = AndroidColor.parseColor("#77A855F7")
-                        outlinePaint.strokeWidth = 26f
+                        outlinePaint.color = AndroidColor.parseColor("#99000000")
+                        outlinePaint.strokeWidth = 24f
                         outlinePaint.strokeCap = Paint.Cap.ROUND
                         outlinePaint.strokeJoin = Paint.Join.ROUND
                         setPoints(geoPoints)
                     }
                     overlays.add(glowLine)
 
-                    // Bold core radiant lilac/purple polyline
+                    // Multi-color Pace Gradient Polyline (Green = Fast, Yellow = Moderate, Red = Slow)
                     val coreLine = Polyline().apply {
-                        outlinePaint.color = AndroidColor.parseColor("#C084FC")
-                        outlinePaint.strokeWidth = 14f
-                        outlinePaint.strokeCap = Paint.Cap.ROUND
-                        outlinePaint.strokeJoin = Paint.Join.ROUND
+                        val corePaint = Paint().apply {
+                            isAntiAlias = true
+                            strokeWidth = 14f
+                            strokeCap = Paint.Cap.ROUND
+                            strokeJoin = Paint.Join.ROUND
+                            style = Paint.Style.STROKE
+                        }
+                        val colorMapping = ColorMapping { index ->
+                            val pt = points.getOrNull(index.coerceIn(0, points.size - 1))
+                            val p = pt?.paceSecPerKm ?: ((minPace + maxPace) / 2.0)
+                            getPaceColorInt(p, minPace, maxPace)
+                        }
+                        usePath(false)
+                        outlinePaintLists.add(PolychromaticPaintList(corePaint, colorMapping, true))
                         setPoints(geoPoints)
                     }
                     overlays.add(coreLine)
@@ -555,24 +602,37 @@ fun PureVectorTrackCanvas(
                 return Offset(sx, sy)
             }
 
-            val routePath = Path()
-            for (i in valid.indices) {
-                val screenPos = pointToScreen(valid[i])
-                if (i == 0) routePath.moveTo(screenPos.x, screenPos.y) else routePath.lineTo(screenPos.x, screenPos.y)
-            }
+            // Pace normalization ranges matching web version
+            val validPaces = valid.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
+            val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
+            val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
 
-            // Glow
-            drawPath(
-                path = routePath,
-                color = AccentPurple.copy(alpha = 0.35f),
-                style = Stroke(width = (14.dp * zoomScale).toPx().coerceIn(10f, 32f), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-            )
-            // Core
-            drawPath(
-                path = routePath,
-                color = AccentPurpleLight,
-                style = Stroke(width = (5.dp * zoomScale).toPx().coerceIn(4f, 14f), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-            )
+            // Multi-color Pace Gradient segments (Green -> Yellow -> Red)
+            for (i in 0 until valid.size - 1) {
+                val p1 = valid[i]
+                val p2 = valid[i + 1]
+                val pos1 = pointToScreen(p1)
+                val pos2 = pointToScreen(p2)
+                val pace = p1.paceSecPerKm ?: ((minPace + maxPace) / 2.0)
+                val color = getPaceColor(pace, minPace, maxPace)
+
+                // Glow
+                drawLine(
+                    color = color.copy(alpha = 0.35f),
+                    start = pos1,
+                    end = pos2,
+                    strokeWidth = (14.dp * zoomScale).toPx().coerceIn(10f, 32f),
+                    cap = StrokeCap.Round
+                )
+                // Core
+                drawLine(
+                    color = color,
+                    start = pos1,
+                    end = pos2,
+                    strokeWidth = (5.dp * zoomScale).toPx().coerceIn(4f, 14f),
+                    cap = StrokeCap.Round
+                )
+            }
 
             // Start Pin (Bold Green)
             val startPos = pointToScreen(valid.first())

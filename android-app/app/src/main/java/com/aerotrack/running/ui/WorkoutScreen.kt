@@ -60,7 +60,6 @@ fun WorkoutDetailScreen(
     onRefreshHealthConnect: () -> Unit
 ) {
     val context = LocalContext.current
-    var showChatGptSheet by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState(
@@ -121,29 +120,6 @@ fun WorkoutDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showChatGptSheet = true },
-                containerColor = AccentPurple,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(24.dp),
-                elevation = FloatingActionButtonDefaults.elevation(8.dp),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Ask AI Coach (ChatGPT)",
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
             )
         },
         containerColor = DarkBg
@@ -284,17 +260,6 @@ fun WorkoutDetailScreen(
                 )
             )
         }
-    }
-
-    if (showChatGptSheet) {
-        ChatGptBottomSheet(
-            workout = workout,
-            onDismiss = { showChatGptSheet = false },
-            onLaunch = { prompt ->
-                showChatGptSheet = false
-                launchChatGpt(context, prompt)
-            }
-        )
     }
 }
 
@@ -618,6 +583,10 @@ fun MiniRouteCanvas(points: List<TrackPoint>) {
     val dLat = Math.max(0.00001, maxLat - minLat)
     val dLon = Math.max(0.00001, maxLon - minLon)
 
+    val validPaces = valid.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
+    val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
+    val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
+
     Canvas(
         modifier = Modifier
             .fillMaxSize()
@@ -626,26 +595,32 @@ fun MiniRouteCanvas(points: List<TrackPoint>) {
         val w = size.width
         val h = size.height
 
-        val path = Path()
-        for (i in valid.indices) {
-            val pt = valid[i]
-            val x = (((pt.longitude - minLon) / dLon) * w).toFloat()
-            val y = (h - (((pt.latitude - minLat) / dLat) * h)).toFloat()
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
+        for (i in 0 until valid.size - 1) {
+            val pt1 = valid[i]
+            val pt2 = valid[i + 1]
+            val x1 = (((pt1.longitude - minLon) / dLon) * w).toFloat()
+            val y1 = (h - (((pt1.latitude - minLat) / dLat) * h)).toFloat()
+            val x2 = (((pt2.longitude - minLon) / dLon) * w).toFloat()
+            val y2 = (h - (((pt2.latitude - minLat) / dLat) * h)).toFloat()
+            val color = getPaceColor(pt1.paceSecPerKm ?: ((minPace + maxPace) / 2.0), minPace, maxPace)
 
-        // Glow line
-        drawPath(
-            path = path,
-            color = AccentPurple.copy(alpha = 0.3f),
-            style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-        )
-        // Main neon line
-        drawPath(
-            path = path,
-            color = AccentPurpleLight,
-            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-        )
+            // Glow line
+            drawLine(
+                color = color.copy(alpha = 0.35f),
+                start = Offset(x1, y1),
+                end = Offset(x2, y2),
+                strokeWidth = 6.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            // Core colored line
+            drawLine(
+                color = color,
+                start = Offset(x1, y1),
+                end = Offset(x2, y2),
+                strokeWidth = 2.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
     }
 }
 
@@ -665,6 +640,10 @@ fun GpsInteractiveMapCard(
     val dLat = Math.max(0.00001, maxLat - minLat)
     val dLon = Math.max(0.00001, maxLon - minLon)
 
+    val validPaces = validPoints.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }
+    val minPace = if (validPaces.isNotEmpty()) validPaces.minOrNull() ?: 240.0 else 240.0
+    val maxPace = if (validPaces.isNotEmpty()) validPaces.maxOrNull() ?: 480.0 else 480.0
+
     val currentPoint = validPoints[scrubIndex.coerceIn(0, validPoints.size - 1)]
 
     Card(
@@ -676,7 +655,7 @@ fun GpsInteractiveMapCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Real GPS Track Canvas
+            // Real GPS Track Canvas with Pace-Colored Segments
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
@@ -685,26 +664,32 @@ fun GpsInteractiveMapCard(
                 val w = size.width
                 val h = size.height
 
-                val path = Path()
-                validPoints.forEachIndexed { i, p ->
-                    val x = ((p.longitude - minLon) / dLon * w).toFloat()
-                    val y = ((maxLat - p.latitude) / dLat * h).toFloat()
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                for (i in 0 until validPoints.size - 1) {
+                    val pt1 = validPoints[i]
+                    val pt2 = validPoints[i + 1]
+                    val x1 = ((pt1.longitude - minLon) / dLon * w).toFloat()
+                    val y1 = ((maxLat - pt1.latitude) / dLat * h).toFloat()
+                    val x2 = ((pt2.longitude - minLon) / dLon * w).toFloat()
+                    val y2 = ((maxLat - pt2.latitude) / dLat * h).toFloat()
+                    val color = getPaceColor(pt1.paceSecPerKm ?: ((minPace + maxPace) / 2.0), minPace, maxPace)
+
+                    // Ambient glow stroke
+                    drawLine(
+                        color = color.copy(alpha = 0.35f),
+                        start = Offset(x1, y1),
+                        end = Offset(x2, y2),
+                        strokeWidth = 12f,
+                        cap = StrokeCap.Round
+                    )
+                    // Neon pace-colored route line
+                    drawLine(
+                        color = color,
+                        start = Offset(x1, y1),
+                        end = Offset(x2, y2),
+                        strokeWidth = 5f,
+                        cap = StrokeCap.Round
+                    )
                 }
-
-                // Ambient glow stroke
-                drawPath(
-                    path = path,
-                    color = AccentPurple.copy(alpha = 0.35f),
-                    style = Stroke(width = 14f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-
-                // Neon route line
-                drawPath(
-                    path = path,
-                    color = AccentPurpleLight,
-                    style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
 
                 // Start Coordinate (Green)
                 val pStart = validPoints.first()
@@ -749,8 +734,8 @@ fun GpsInteractiveMapCard(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val paceSec = currentPoint.paceSecPerKm ?: 470.0
-                        val pm = (paceSec / 60).toInt()
-                        val ps = (paceSec % 60).toInt()
+                        val pm = (paceSec / 60.0).toInt()
+                        val ps = (paceSec % 60.0).toInt()
                         Text(
                             text = "$pm:${if (ps < 10) "0" else ""}$ps /km",
                             fontSize = 13.sp,
@@ -768,7 +753,7 @@ fun GpsInteractiveMapCard(
                 }
             }
 
-            // Map legend at bottom
+            // Map legend at bottom with Pace gradient
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -778,14 +763,25 @@ fun GpsInteractiveMapCard(
                 Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AccentEmerald))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Start", fontSize = 10.sp, color = Color(0xFF94A3B8))
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AccentRose))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Finish", fontSize = 10.sp, color = Color(0xFF94A3B8))
-                Spacer(modifier = Modifier.width(12.dp))
-                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AccentPurple))
+                Spacer(modifier = Modifier.width(10.dp))
+                // Pace Heat gradient bar
+                Box(
+                    modifier = Modifier
+                        .width(36.dp)
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(Color(0xFF10B981), Color(0xFFFBBF24), Color(0xFFEF4444))
+                            )
+                        )
+                )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Current Marker", fontSize = 10.sp, color = AccentPurpleLight, fontWeight = FontWeight.Bold)
+                Text(text = "Pace", fontSize = 10.sp, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
             }
         }
     }
