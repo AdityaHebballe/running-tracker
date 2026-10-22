@@ -207,7 +207,10 @@ fun WorkoutDetailScreen(
             } else if (!workout.isRouteConsentRequired) {
                 // Helpful card when Health Connect didn't receive GPS data
                 item {
-                    NoGpsRouteCard(onImportTcx = onImportTcx)
+                    NoGpsRouteCard(
+                        onRequestRouteConsent = { onRequestRouteConsent?.invoke(workout.id) },
+                        onImportTcx = onImportTcx
+                    )
                 }
             }
 
@@ -1304,6 +1307,7 @@ fun RouteConsentCard(
 
 @Composable
 fun NoGpsRouteCard(
+    onRequestRouteConsent: (() -> Unit)?,
     onImportTcx: (() -> Unit)?
 ) {
     Surface(
@@ -1312,48 +1316,66 @@ fun NoGpsRouteCard(
         border = BorderStroke(1.dp, BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.05f)),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Route,
-                    contentDescription = null,
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "No GPS Track in Health Connect",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Fitbit did not sync GPS coordinates for this run. Have a TCX export file? Tap to import.",
-                    fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
-                )
-            }
-            if (onImportTcx != null) {
-                Spacer(modifier = Modifier.width(10.dp))
-                Button(
-                    onClick = onImportTcx,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.05f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Import", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.Route,
+                        contentDescription = null,
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "No GPS Track Available",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Fitbit / Google Health synced distance and heart rate, but did not export the GPS route into Health Connect. Tap 'Import TCX' to load your workout route.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (onRequestRouteConsent != null) {
+                    OutlinedButton(
+                        onClick = onRequestRouteConsent,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, AccentPurpleLight),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Check Route", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+                if (onImportTcx != null) {
+                    Button(
+                        onClick = onImportTcx,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Import TCX", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

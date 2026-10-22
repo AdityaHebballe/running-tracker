@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var tcxPickerLauncher: ActivityResultLauncher<Array<String>>
 
     private var pendingRouteSessionId by mutableStateOf<String?>(null)
+    private var requestedRouteConsentSessionIds by mutableStateOf<Set<String>>(emptySet())
     private var uiState by mutableStateOf<UiState>(UiState.Checking)
     private var activeDateFilter by mutableStateOf<LocalDate?>(null)
     private var showStudio by mutableStateOf(false)
@@ -85,6 +87,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 uiState = currentReady.copy(workouts = updatedWorkouts)
+                Toast.makeText(this, "Route loaded successfully!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Health Connect has no GPS route for this run. Fitbit only synced distance & heart rate. Tap 'Import TCX' to load your workout map.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
 
@@ -105,11 +114,15 @@ class MainActivity : ComponentActivity() {
                                 Log.w(TAG, "Could not save imported tcx: ${e.message}")
                             }
                             withContext(Dispatchers.Main) {
+                                Toast.makeText(this@MainActivity, "Imported ${parsed.trackPoints.size} route points!", Toast.LENGTH_SHORT).show()
                                 loadHealthConnectData(activeDateFilter)
                             }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error importing TCX file", e)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Failed to parse file: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -155,6 +168,18 @@ class MainActivity : ComponentActivity() {
 
                         is UiState.Ready -> {
                             val selectedWorkout = state.workouts[state.selectedIndex.coerceIn(0, state.workouts.size - 1)]
+
+                            LaunchedEffect(selectedWorkout.id, selectedWorkout.isRouteConsentRequired) {
+                                if (selectedWorkout.isRouteConsentRequired && selectedWorkout.id !in requestedRouteConsentSessionIds) {
+                                    requestedRouteConsentSessionIds = requestedRouteConsentSessionIds + selectedWorkout.id
+                                    pendingRouteSessionId = selectedWorkout.id
+                                    try {
+                                        routeConsentLauncher.launch(selectedWorkout.id)
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Could not launch route consent contract: ${e.message}")
+                                    }
+                                }
+                            }
                             if (showStudio) {
                                 BackHandler {
                                     showStudio = false

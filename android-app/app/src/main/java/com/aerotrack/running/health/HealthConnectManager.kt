@@ -96,6 +96,11 @@ class HealthConnectManager(private val context: Context) {
             Log.d(TAG, "Health Connect returned ${response.records.size} raw exercise sessions")
 
             for (record in response.records) {
+                Log.i(
+                    TAG,
+                    "RAW SESSION: id=${record.metadata.id}, origin=${record.metadata.dataOrigin.packageName}, type=${record.exerciseType}, title='${record.title}', start=${record.startTime}, end=${record.endTime}, route=${record.exerciseRouteResult}"
+                )
+
                 // Strictly filter for activities explicitly marked as Running
                 val isRunning = record.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_RUNNING ||
                                 record.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL ||
@@ -148,12 +153,24 @@ class HealthConnectManager(private val context: Context) {
         }
 
         // 2. Read GPS Route if available
-        val routeResult = sessionRecord.exerciseRouteResult
-        Log.i(TAG, "exerciseRouteResult = $routeResult")
+        // Note: Batch readRecords() omits exercise route data to avoid IPC payload limits.
+        // Calling client.readRecord() for the individual record fetches the route or returns ConsentRequired.
+        val individualRecord = try {
+            client.readRecord(ExerciseSessionRecord::class, sessionRecord.metadata.id).record
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed single readRecord for ${sessionRecord.metadata.id}: ${e.message}")
+            sessionRecord
+        }
+
+        val routeResult = individualRecord.exerciseRouteResult
+        Log.i(TAG, "individual exerciseRouteResult for ${sessionRecord.metadata.id} = $routeResult")
         var isConsentRequired = false
         val routeLocations: List<ExerciseRoute.Location> = try {
             when (routeResult) {
-                is ExerciseRouteResult.Data -> routeResult.exerciseRoute.route
+                is ExerciseRouteResult.Data -> {
+                    Log.i(TAG, "Found route with ${routeResult.exerciseRoute.route.size} locations")
+                    routeResult.exerciseRoute.route
+                }
                 is ExerciseRouteResult.ConsentRequired -> {
                     Log.i(TAG, "Route consent required for session ${sessionRecord.metadata.id}")
                     isConsentRequired = true
