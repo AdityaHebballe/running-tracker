@@ -327,7 +327,7 @@ fun RouteStudioScreen(
                             TelemetryBadgeChip(
                                 icon = Icons.AutoMirrored.Filled.DirectionsRun,
                                 iconTint = AccentPurpleLight,
-                                label = if (selectedLapNumber != null) "LAP DIST" else "DIST",
+                                label = if (selectedLapNumber != null) "L.DIST" else "DIST",
                                 value = distKm,
                                 unit = "km",
                                 valueColor = AccentPurpleLight,
@@ -343,7 +343,7 @@ fun RouteStudioScreen(
                             TelemetryBadgeChip(
                                 icon = Icons.Outlined.Timer,
                                 iconTint = AccentPurpleBright,
-                                label = if (selectedLapNumber != null) "LAP TIME" else "TIME",
+                                label = if (selectedLapNumber != null) "L.TIME" else "TIME",
                                 value = formatTime(elapsedSec),
                                 unit = "min",
                                 valueColor = Color.White,
@@ -814,26 +814,25 @@ fun TelemetryBadgeChip(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.height(68.dp),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.heightIn(min = 66.dp),
+        shape = RoundedCornerShape(12.dp),
         color = SurfaceCard,
         border = BorderStroke(1.dp, BorderSubtle)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly
+            verticalArrangement = Arrangement.Center
         ) {
-            // Uniform Header Row: 22x22 circular badge + 10sp label
+            // Header Row: compact 18x18 icon badge + 9sp label
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(22.dp)
+                        .size(18.dp)
                         .clip(CircleShape)
                         .background(iconTint.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
@@ -842,34 +841,40 @@ fun TelemetryBadgeChip(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconTint,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = label,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF94A3B8),
-                    letterSpacing = 0.4.sp
+                    letterSpacing = 0.2.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
 
-            // Uniform Value Row: Bold number + small unit
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Value Row: Bold number + small unit (no wrapping)
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = value,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = valueColor,
-                    maxLines = 1
+                    maxLines = 1,
+                    softWrap = false
                 )
                 Spacer(modifier = Modifier.width(2.dp))
                 Text(
                     text = unit,
-                    fontSize = 9.sp,
+                    fontSize = 8.5.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF64748B)
                 )
