@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
+import androidx.health.connect.client.records.ExerciseRoute
 import androidx.lifecycle.lifecycleScope
 import com.aerotrack.running.data.TcxParser
 import com.aerotrack.running.data.WorkoutSession
@@ -31,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDate
+import java.time.ZoneId
 
 sealed interface UiState {
     data object Checking : UiState
@@ -51,7 +54,10 @@ class MainActivity : ComponentActivity() {
     private val TAG = "AeroTrack"
     private lateinit var healthConnectManager: HealthConnectManager
     private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
+    private lateinit var routeConsentLauncher: ActivityResultLauncher<String>
+    private lateinit var tcxPickerLauncher: ActivityResultLauncher<Array<String>>
 
+    private var pendingRouteSessionId by mutableStateOf<String?>(null)
     private var uiState by mutableStateOf<UiState>(UiState.Checking)
     private var activeDateFilter by mutableStateOf<LocalDate?>(null)
     private var showStudio by mutableStateOf(false)
@@ -64,6 +70,49 @@ class MainActivity : ComponentActivity() {
             PermissionController.createRequestPermissionResultContract()
         ) {
             checkStatusAndLoad(activeDateFilter)
+        }
+
+        routeConsentLauncher = registerForActivityResult(
+            ExerciseRouteRequestContract()
+        ) { route: ExerciseRoute? ->
+            if (route != null) {
+                val currentReady = uiState as? UiState.Ready ?: return@registerForActivityResult
+                val updatedWorkouts = currentReady.workouts.map { w ->
+                    if (w.id == pendingRouteSessionId) {
+                        healthConnectManager.enrichSessionWithRoute(w, route)
+                    } else {
+                        w
+                    }
+                }
+                uiState = currentReady.copy(workouts = updatedWorkouts)
+            }
+        }
+
+        tcxPickerLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        contentResolver.openInputStream(uri)?.use { stream ->
+                            val parsed = TcxParser.parse(stream)
+                            val dest = File(getExternalFilesDir(null), "imported_${System.currentTimeMillis()}.tcx")
+                            try {
+                                contentResolver.openInputStream(uri)?.use { inStr ->
+                                    dest.outputStream().use { outStr -> inStr.copyTo(outStr) }
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Could not save imported tcx: ${e.message}")
+                            }
+                            withContext(Dispatchers.Main) {
+                                loadHealthConnectData(activeDateFilter)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error importing TCX file", e)
+                    }
+                }
+            }
         }
 
         checkStatusAndLoad(activeDateFilter)
@@ -128,7 +177,14 @@ class MainActivity : ComponentActivity() {
                                         uiState = state.copy(selectedIndex = index)
                                     },
                                     onOpenStudio = { showStudio = true },
-                                    onRefreshHealthConnect = { loadHealthConnectData(state.filterDate) }
+                                    onRefreshHealthConnect = { loadHealthConnectData(state.filterDate) },
+                                    onRequestRouteConsent = { sessionId ->
+                                        pendingRouteSessionId = sessionId
+                                        routeConsentLauncher.launch(sessionId)
+                                    },
+                                    onImportTcx = {
+                                        tcxPickerLauncher.launch(arrayOf("*/*"))
+                                    }
                                 )
                             }
                         }
@@ -167,34 +223,49 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun tryLoadPreloadedTcx(): WorkoutSession? {
-        val candidates = listOf(
-            File(getExternalFilesDir(null), "exercise_tcx_file.tcx"),
-            File("/sdcard/Download/Telegram/exercise_tcx_file.tcx"),
-            File("/sdcard/Download/exercise_tcx_file.tcx")
+    private fun tryLoadAllTcx(): List<WorkoutSession> {
+        val searchDirs = listOfNotNull(
+            getExternalFilesDir(null),
+            File("/sdcard/Download"),
+            File("/sdcard/Download/Telegram"),
+            File("/storage/emulated/0/Download"),
+            File("/storage/emulated/0/Download/Telegram")
         )
-        for (f in candidates) {
-            if (f.exists() && f.canRead()) {
+        val foundFiles = mutableSetOf<String>()
+        val sessions = mutableListOf<WorkoutSession>()
+
+        for (dir in searchDirs) {
+            if (!dir.exists() || !dir.isDirectory) continue
+            val files = dir.listFiles { f ->
+                f.isFile && (f.name.endsWith(".tcx", ignoreCase = true) || f.name.endsWith(".gpx", ignoreCase = true))
+            } ?: continue
+
+            for (f in files) {
+                if (f.absolutePath in foundFiles) continue
+                foundFiles.add(f.absolutePath)
                 try {
                     f.inputStream().use { stream ->
-                        val session = TcxParser.parse(stream)
-                        Log.i(TAG, "Successfully loaded TCX from ${f.absolutePath} with ${session.trackPoints.size} points")
-                        return session
+                        val s = TcxParser.parse(stream)
+                        Log.i(TAG, "Loaded TCX from ${f.absolutePath} with ${s.trackPoints.size} points (start=${s.startTime})")
+                        sessions.add(s)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Could not parse candidate file ${f.absolutePath}: ${e.message}")
                 }
             }
         }
-        return null
+        return sessions
     }
 
     private fun checkStatusAndLoad(date: LocalDate?) {
         val status = HealthConnectClient.getSdkStatus(this)
         if (status == HealthConnectClient.SDK_UNAVAILABLE || status == HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
-            val localTcx = tryLoadPreloadedTcx()
-            if (localTcx != null) {
-                uiState = UiState.Ready(listOf(localTcx), 0, null)
+            val localTcx = tryLoadAllTcx()
+            if (localTcx.isNotEmpty()) {
+                val zoneId = ZoneId.systemDefault()
+                val filtered = if (date != null) localTcx.filter { it.startTime.atZone(zoneId).toLocalDate() == date } else localTcx
+                val sorted = filtered.sortedByDescending { it.startTime }
+                uiState = if (sorted.isNotEmpty()) UiState.Ready(sorted, 0, date) else UiState.Empty(date)
             } else {
                 uiState = UiState.NotAvailable
             }
@@ -205,9 +276,12 @@ class MainActivity : ComponentActivity() {
             if (healthConnectManager.hasRequiredPermissions()) {
                 loadHealthConnectData(date)
             } else {
-                val localTcx = tryLoadPreloadedTcx()
-                if (localTcx != null) {
-                    uiState = UiState.Ready(listOf(localTcx), 0, null)
+                val localTcx = tryLoadAllTcx()
+                if (localTcx.isNotEmpty()) {
+                    val zoneId = ZoneId.systemDefault()
+                    val filtered = if (date != null) localTcx.filter { it.startTime.atZone(zoneId).toLocalDate() == date } else localTcx
+                    val sorted = filtered.sortedByDescending { it.startTime }
+                    uiState = if (sorted.isNotEmpty()) UiState.Ready(sorted, 0, date) else UiState.Empty(date)
                 } else {
                     uiState = UiState.PermissionRequired
                 }
@@ -219,56 +293,75 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             uiState = UiState.Loading
             try {
-                var sessions = healthConnectManager.readWorkouts(filterDate = date)
-                if (sessions.isEmpty() && date != null) {
-                    val allRecent = healthConnectManager.readWorkouts(filterDate = null, daysBack = 90)
-                    if (allRecent.isNotEmpty()) {
-                        sessions = allRecent
-                        activeDateFilter = null
+                // If date is selected, read that date; if null, read 90 days back
+                val hcSessions = healthConnectManager.readWorkouts(filterDate = date, daysBack = 90)
+                val tcxSessions = withContext(Dispatchers.IO) { tryLoadAllTcx() }
+
+                val combined = mutableListOf<WorkoutSession>()
+                val matchedTcxIds = mutableSetOf<String>()
+
+                // 1. Enrich Health Connect workouts with matching TCX files if available
+                for (hc in hcSessions) {
+                    val matchedTcx = tcxSessions.find { tcx ->
+                        Math.abs(tcx.startTime.epochSecond - hc.startTime.epochSecond) < 1800
+                    }
+                    if (matchedTcx != null) {
+                        matchedTcxIds.add(matchedTcx.id)
+                        val enriched = hc.copy(
+                            trackPoints = if (matchedTcx.trackPoints.isNotEmpty()) matchedTcx.trackPoints else hc.trackPoints,
+                            splits = if (matchedTcx.splits.isNotEmpty()) matchedTcx.splits else hc.splits,
+                            totalDistanceMeters = if (matchedTcx.totalDistanceMeters > 0) matchedTcx.totalDistanceMeters else hc.totalDistanceMeters,
+                            avgPaceSecPerKm = if (matchedTcx.avgPaceSecPerKm > 0) matchedTcx.avgPaceSecPerKm else hc.avgPaceSecPerKm,
+                            bestPaceSecPerKm = if (matchedTcx.bestPaceSecPerKm > 0) matchedTcx.bestPaceSecPerKm else hc.bestPaceSecPerKm,
+                            hrZones = if (hc.hrZones.isNotEmpty()) hc.hrZones else matchedTcx.hrZones
+                        )
+                        combined.add(enriched)
+                    } else {
+                        combined.add(hc)
                     }
                 }
 
-                val localTcx = tryLoadPreloadedTcx()
-                val combinedSessions = mutableListOf<WorkoutSession>()
-
-                if (localTcx != null) {
-                    val matchedHc = sessions.find { 
-                        Math.abs(it.startTime.epochSecond - localTcx.startTime.epochSecond) < 600 
+                // 2. Add any standalone TCX sessions that did not match a Health Connect workout
+                for (tcx in tcxSessions) {
+                    if (tcx.id !in matchedTcxIds) {
+                        combined.add(tcx)
                     }
-                    if (matchedHc != null) {
-                        // Enrich Health Connect session with TCX GPS route points and loop laps!
-                        val enriched = matchedHc.copy(
-                            trackPoints = localTcx.trackPoints,
-                            splits = localTcx.splits,
-                            totalDistanceMeters = if (localTcx.totalDistanceMeters > 0) localTcx.totalDistanceMeters else matchedHc.totalDistanceMeters,
-                            avgPaceSecPerKm = if (localTcx.avgPaceSecPerKm > 0) localTcx.avgPaceSecPerKm else matchedHc.avgPaceSecPerKm,
-                            bestPaceSecPerKm = if (localTcx.bestPaceSecPerKm > 0) localTcx.bestPaceSecPerKm else matchedHc.bestPaceSecPerKm,
-                            hrZones = if (matchedHc.hrZones.isNotEmpty()) matchedHc.hrZones else localTcx.hrZones
-                        )
-                        combinedSessions.add(enriched)
-                        combinedSessions.addAll(sessions.filter { it.id != matchedHc.id })
-                    } else {
-                        combinedSessions.add(localTcx)
-                        combinedSessions.addAll(sessions)
+                }
+
+                // 3. Strict Date Filtering if date filter is active
+                val zoneId = ZoneId.systemDefault()
+                val filtered = if (date != null) {
+                    combined.filter {
+                        it.startTime.atZone(zoneId).toLocalDate() == date
                     }
                 } else {
-                    combinedSessions.addAll(sessions)
+                    combined
                 }
 
-                if (combinedSessions.isEmpty()) {
+                // 4. Always sort newest first so recent workout is index 0
+                val sorted = filtered.sortedByDescending { it.startTime }
+
+                if (sorted.isEmpty()) {
                     uiState = UiState.Empty(filterDate = date)
                 } else {
                     uiState = UiState.Ready(
-                        workouts = combinedSessions,
+                        workouts = sorted,
                         selectedIndex = 0,
-                        filterDate = activeDateFilter
+                        filterDate = date
                     )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading workouts", e)
-                val localTcx = tryLoadPreloadedTcx()
-                if (localTcx != null) {
-                    uiState = UiState.Ready(listOf(localTcx), 0, null)
+                val tcxSessions = withContext(Dispatchers.IO) { tryLoadAllTcx() }
+                val zoneId = ZoneId.systemDefault()
+                val filtered = if (date != null) {
+                    tcxSessions.filter { it.startTime.atZone(zoneId).toLocalDate() == date }
+                } else {
+                    tcxSessions
+                }
+                val sorted = filtered.sortedByDescending { it.startTime }
+                if (sorted.isNotEmpty()) {
+                    uiState = UiState.Ready(sorted, 0, date)
                 } else {
                     uiState = UiState.Error(e.localizedMessage ?: "Failed to read Health Connect data")
                 }

@@ -6,6 +6,7 @@
 
     <!-- Health Connect Permissions (Android 14+ integrated, Android 9-13 via app) -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTES" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_SPEED" />

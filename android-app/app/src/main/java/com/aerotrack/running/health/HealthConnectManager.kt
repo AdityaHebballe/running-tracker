@@ -49,6 +49,7 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(ElevationGainedRecord::class),
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        "android.permission.health.READ_EXERCISE_ROUTE",
         "android.permission.health.READ_EXERCISE_ROUTES"
     )
 
@@ -149,9 +150,19 @@ class HealthConnectManager(private val context: Context) {
         // 2. Read GPS Route if available
         val routeResult = sessionRecord.exerciseRouteResult
         Log.i(TAG, "exerciseRouteResult = $routeResult")
+        var isConsentRequired = false
         val routeLocations: List<ExerciseRoute.Location> = try {
             when (routeResult) {
                 is ExerciseRouteResult.Data -> routeResult.exerciseRoute.route
+                is ExerciseRouteResult.ConsentRequired -> {
+                    Log.i(TAG, "Route consent required for session ${sessionRecord.metadata.id}")
+                    isConsentRequired = true
+                    emptyList()
+                }
+                is ExerciseRouteResult.NoData -> {
+                    Log.i(TAG, "No route data in Health Connect for session ${sessionRecord.metadata.id}")
+                    emptyList()
+                }
                 else -> emptyList()
             }
         } catch (e: Exception) {
@@ -366,7 +377,72 @@ class HealthConnectManager(private val context: Context) {
             maxSpeedKmh = trackPoints.map { it.speedKmh }.maxOrNull() ?: 0.0,
             trackPoints = trackPoints,
             splits = splits,
-            hrZones = hrZones
+            hrZones = hrZones,
+            isRouteConsentRequired = isConsentRequired
+        )
+    }
+
+    fun enrichSessionWithRoute(session: WorkoutSession, exerciseRoute: ExerciseRoute): WorkoutSession {
+        val routeLocations = exerciseRoute.route
+        if (routeLocations.isEmpty()) return session
+
+        val trackPoints = mutableListOf<TrackPoint>()
+        var cumDist = 0.0
+        val t0 = session.startTime
+
+        for (i in routeLocations.indices) {
+            val loc = routeLocations[i]
+            if (i > 0) {
+                val prev = routeLocations[i - 1]
+                cumDist += haversineDistanceMeters(prev.latitude, prev.longitude, loc.latitude, loc.longitude)
+            }
+            val elapsedSec = Duration.between(t0, loc.time).seconds
+            val matchingHr = session.trackPoints.minByOrNull {
+                Math.abs(Duration.between(it.time, loc.time).toMillis())
+            }?.heartRateBpm
+
+            trackPoints.add(
+                TrackPoint(
+                    time = loc.time,
+                    latitude = loc.latitude,
+                    longitude = loc.longitude,
+                    altitudeMeters = loc.altitude?.inMeters ?: 0.0,
+                    distanceMeters = cumDist,
+                    heartRateBpm = matchingHr,
+                    elapsedSeconds = elapsedSec
+                )
+            )
+        }
+
+        // Smooth speed & pace
+        for (i in trackPoints.indices) {
+            val wStart = Math.max(0, i - 4)
+            val wEnd = Math.min(trackPoints.size - 1, i + 4)
+            val dDist = trackPoints[wEnd].distanceMeters - trackPoints[wStart].distanceMeters
+            val dTime = trackPoints[wEnd].elapsedSeconds - trackPoints[wStart].elapsedSeconds
+            val speedMs = if (dTime > 0) dDist / dTime else 0.0
+            trackPoints[i] = trackPoints[i].copy(
+                speedKmh = speedMs * 3.6,
+                paceSecPerKm = if (speedMs >= 0.4) 1000.0 / speedMs else null
+            )
+        }
+
+        val splits = com.aerotrack.running.data.TcxParser.detectLoopLaps(trackPoints).ifEmpty {
+            calculateSplits(trackPoints, intervalMeters = 1000.0)
+        }
+
+        val totalDist = if (cumDist > 0) cumDist else session.totalDistanceMeters
+        val totalSec = session.totalElapsedSeconds
+        val avgPace = if (totalDist > 0 && totalSec > 0) totalSec / (totalDist / 1000.0) else session.avgPaceSecPerKm
+        val bestPace = trackPoints.mapNotNull { it.paceSecPerKm }.filter { it in 120.0..900.0 }.minOrNull() ?: avgPace
+
+        return session.copy(
+            trackPoints = trackPoints,
+            splits = splits,
+            totalDistanceMeters = totalDist,
+            avgPaceSecPerKm = avgPace,
+            bestPaceSecPerKm = bestPace,
+            isRouteConsentRequired = false
         )
     }
 

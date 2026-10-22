@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,7 +58,9 @@ fun WorkoutDetailScreen(
     onSelectDate: (LocalDate?) -> Unit,
     onSelectWorkout: (Int) -> Unit,
     onOpenStudio: () -> Unit,
-    onRefreshHealthConnect: () -> Unit
+    onRefreshHealthConnect: () -> Unit,
+    onRequestRouteConsent: ((String) -> Unit)? = null,
+    onImportTcx: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var showDatePicker by remember { mutableStateOf(false) }
@@ -105,6 +108,21 @@ fun WorkoutDetailScreen(
                     }
                 },
                 actions = {
+                    // Import TCX / GPX button
+                    if (onImportTcx != null) {
+                        IconButton(
+                            onClick = onImportTcx,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(SurfaceCard)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileUpload,
+                                contentDescription = "Import TCX File",
+                                tint = AccentCyan
+                            )
+                        }
+                    }
                     // Sync Health Connect button
                     IconButton(
                         onClick = onRefreshHealthConnect,
@@ -171,6 +189,13 @@ fun WorkoutDetailScreen(
                 HeroEditorialCard(workout)
             }
 
+            // Route Consent Required Action Card
+            if (workout.isRouteConsentRequired) {
+                item {
+                    RouteConsentCard(onClick = { onRequestRouteConsent?.invoke(workout.id) })
+                }
+            }
+
             // 2. Dedicated Route & Telemetry Studio Launcher Card
             if (workout.trackPoints.any { it.latitude != 0.0 }) {
                 item {
@@ -178,6 +203,11 @@ fun WorkoutDetailScreen(
                         workout = workout,
                         onOpenStudio = onOpenStudio
                     )
+                }
+            } else if (!workout.isRouteConsentRequired) {
+                // Helpful card when Health Connect didn't receive GPS data
+                item {
+                    NoGpsRouteCard(onImportTcx = onImportTcx)
                 }
             }
 
@@ -1217,4 +1247,115 @@ fun formatTime(sec: Long): String {
     val m = sec / 60
     val s = sec % 60
     return "$m:${if (s < 10) "0" else ""}$s"
+}
+
+@Composable
+fun RouteConsentCard(
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = AccentPurple.copy(alpha = 0.2f),
+        border = BorderStroke(1.dp, AccentPurpleLight),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AccentPurple.copy(alpha = 0.35f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Grant Route Access",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Health Connect requires your permission to view the GPS route for this run. Tap to grant.",
+                    fontSize = 12.sp,
+                    color = Color(0xFFCBD5E1)
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = AccentPurpleLight
+            )
+        }
+    }
+}
+
+@Composable
+fun NoGpsRouteCard(
+    onImportTcx: (() -> Unit)?
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = SurfaceCard,
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.05f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Route,
+                    contentDescription = null,
+                    tint = Color(0xFF94A3B8),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "No GPS Track in Health Connect",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Fitbit did not sync GPS coordinates for this run. Have a TCX export file? Tap to import.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+            if (onImportTcx != null) {
+                Spacer(modifier = Modifier.width(10.dp))
+                Button(
+                    onClick = onImportTcx,
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text("Import", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
 }

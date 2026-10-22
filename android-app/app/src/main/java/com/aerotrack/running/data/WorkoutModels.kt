@@ -60,5 +60,6 @@ data class WorkoutSession(
     val maxSpeedKmh: Double,
     val trackPoints: List<TrackPoint> = emptyList(),
     val splits: List<SplitInfo> = emptyList(),
-    val hrZones: List<HeartRateZoneStats> = emptyList()
+    val hrZones: List<HeartRateZoneStats> = emptyList(),
+    val isRouteConsentRequired: Boolean = false
 )
